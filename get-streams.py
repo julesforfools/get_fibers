@@ -54,7 +54,7 @@ def GetApodemeDirection(p1,p2,p3,p4):
     return v12mid - v34mid, v12mid, v34mid
 
 
-### Read Muscle Fiber Data from swc-file ###
+### Read Muscle Fiber Data from lines-file ###
 def ReadStreamData(filename):
     textlines=[]
     with open(filename, 'r') as f:
@@ -66,8 +66,11 @@ def ReadStreamData(filename):
         if line.startswith('object'):                           # this finishes the loop when the last line is hit
             continue
         if line.startswith('material'):                         # when the line starts with 'material' we consider this fiber finished
-            lines.append(pack)                                  # if we hit 'material...' we append pack to lines
-            pack = []
+            if len(pack) < 10:                                  # if the streamline doesn't reach a specific threshold length we skip it
+                pack = []
+            else:
+                lines.append(pack)                              # else, if we hit 'material...' we append pack to the lines object
+                pack = []
         else:
             data = line.split('\t')                             # the current line is assigned to 'data', it is split by tab
             pack.append(data)                                   # we add the current line to pack
