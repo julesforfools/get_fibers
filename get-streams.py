@@ -18,6 +18,7 @@ print(sys.argv[0:])
 FILE_MARKERS = sys.argv[4]
 FILE_FIBERS = sys.argv[5]
 SCALE_MULT = sys.argv[6]
+MIN_LENGTH = sys.argv[7]
 ### Set the scale for visualization in Blender ###
 if SCALE_MULT == 'mm':
     SCALE_MULT = 0.01
@@ -66,7 +67,7 @@ def ReadStreamData(filename):
         if line.startswith('object'):                           # this finishes the loop when the last line is hit
             continue
         if line.startswith('material'):                         # when the line starts with 'material' we consider this fiber finished
-            if len(pack) < 10:                                  # if the streamline doesn't reach a specific threshold length we skip it
+            if len(pack) < MIN_LENGTH:                          # if the streamline doesn't reach a specific threshold length we skip it
                 pack = []
             else:
                 lines.append(pack)                              # else, if we hit 'material...' we append pack to the lines object
@@ -224,7 +225,7 @@ for i in range(0, len(allFiberlines)):
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(fiberPoints, SCALE_MULT, (255,128,0,255), False, collection = "Fibers")
+        CreateCurve(fiberPoints, SCALE_MULT/5, (255,128,0,255), False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
@@ -233,16 +234,16 @@ for i in range(0, len(allFiberlines)):
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
+            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT/5, (255,0,0,255), False, collection = "Straightened")
             #draw nomalized fiber at origin for debug and flipped:
-            CreateCurve([Vector((0,0,0)),-(fiberDirection * 100 * SCALE_MULT)], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
+            #CreateCurve([Vector((0,0,0)),-(fiberDirection * 100 * SCALE_MULT)], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
+            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT/5, (255,0,0,255), False, collection = "Straightened")
             #draw nomalized fiber at origin for debug:
-            CreateCurve([Vector((0,0,0)),fiberDirection * 100 * SCALE_MULT], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
+            #CreateCurve([Vector((0,0,0)),fiberDirection * 100 * SCALE_MULT], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
 
 
 #--------------------------------------------------------------------------
