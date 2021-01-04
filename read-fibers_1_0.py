@@ -1,0 +1,224 @@
+
+import sys
+from mathutils import Vector
+import bpy
+import math
+import os
+
+print(sys.argv[0:])
+#i = 0
+#for a in sys.argv:
+#    print(a,i)
+#    i+=1
+#sys.exit(-1)
+#--output
+#../blender-2.80/blender 0
+#start-fibers.blend 1
+#-P 2
+#read-fibers.py 3
+#-- 4
+#lines-fibers.swc 5
+
+
+#Blended 2.79 not supported!
+#----------------------------------------------------------------------------------------------------------------
+# run line:
+# ../blender-2.80/blender start-fibers.blend -P read-fibers.py -- markers-input.txt lines-fibers.swc
+#----------------------------------------------------------------------------------------------------------------
+
+
+
+
+#FILE_FIBERS="lines-fibers.swc"
+FILE_MARKERS = sys.argv[4]
+FILE_FIBERS = sys.argv[5]
+
+SCALE_MULT = 10
+
+
+
+def ReadApodemeData(filename):
+    p1,p2,p3,p4 = Vector((0,0,0)), Vector((0,0,0)), Vector((0,0,0)), Vector((0,0,0))
+    lines = []
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+    for i in range(0,len(lines)):
+        line = lines[i]
+        if line.startswith("@1"):
+            pointData = []
+            for k in range(1,5):
+                if i + k < len(lines):
+                    pointData.append(lines[i+k])
+            if len(pointData) == 4:
+                points = []
+                for pd in pointData:
+                    points.append(pd.split(' '))
+                p1 = Vector((float(points[0][0]),float(points[0][1]),float(points[0][2])))*SCALE_MULT
+                p2 = Vector((float(points[1][0]),float(points[1][1]),float(points[1][2])))*SCALE_MULT
+                p3 = Vector((float(points[2][0]),float(points[2][1]),float(points[2][2])))*SCALE_MULT
+                p4 = Vector((float(points[3][0]),float(points[3][1]),float(points[3][2])))*SCALE_MULT
+    return p1,p2,p3,p4
+
+
+
+def ReadFiberData(filename):
+    textlines=[]
+    with open(filename, 'r') as f:
+        textlines = f.readlines()
+    textlines = [l.rstrip('\n').lstrip() for l in textlines]
+    lines=[]
+    for line in textlines:
+        data = line.split(' ')
+        if len(data) <=  0:
+            continue
+        pack = None
+        if data[-1] == "-1":
+            pack = []
+            lines.append(pack)
+        else:
+            pack = lines[-1]
+        pack.append(data)
+    return lines
+
+
+def GetApodemeDirection(p1,p2,p3,p4):
+    v12mid = (p1+p2)/2 #Vector(( (p1.x+p2.x)/2.0, (p1.y+p2.y)/2.0, (p1.z+p2.z)/2.0 ))
+    v34mid = (p3+p4)/2 #Vector(( (p3.x+p4.x)/2.0, (p3.y+p4.y)/2.0, (p3.z+p4.z)/2.0 ))
+    return v12mid - v34mid, v12mid, v34mid
+
+
+def CreatePointAtLocation(location,size=0.1):
+    #scene = bpy.context.scene
+    bpy.ops.mesh.primitive_cube_add(size=size * 0.01 * SCALE_MULT, calc_uvs=True,location=location)
+    #cube = bpy.context.active_object
+
+
+def CreateCurve(dataPoints,thickness,color,use_cyclic):
+    # create the Curve Data object
+    curveData = bpy.data.curves.new('myCurveData', type='CURVE')
+    curveData.dimensions = '3D'
+    curveData.resolution_u = 3                          # quality of the curve in the view
+    curveData.render_resolution_u = 3                   # quality of the curve in Render
+    curveData.bevel_depth = thickness                   # Thickness
+    curveData.bevel_resolution = 3                      # quality of the bevel
+    curveData.fill_mode = 'FULL'                        # type of bevel
+    # map points to spline
+    polyline = curveData.splines.new('NURBS')           # create a polyline in the curveData
+    polyline.points.add(len(dataPoints)-1)                  # specify the total number of points
+    i = 0
+    for p in dataPoints:                                    # open the loop. for each index(i) and tuple(coord)
+        polyline.points[i].co = Vector((p.x, p.y, p.z,1))  # assign to the point at index, the corresponded x,y,z
+        i+=1
+    curveData.splines[0].use_cyclic_u = use_cyclic      # specify if the curve cyclic or not
+    curveData.splines[0].use_endpoint_u = True          # draw including endpoints
+    curveOBJ = bpy.data.objects.new('myCurve', curveData) # crete new curve obj with the curveData
+    scene = bpy.context.scene                            # get reference to our scene
+    scene.collection.objects.link(curveOBJ)
+    bpy.data.collections[0].objects.link(curveOBJ)
+    #creating and assigning new material
+    mat = bpy.data.materials.new("matBase")            # Create new material
+    mat.diffuse_color = color                          # set diffuse color to our color
+    mat.metallic = 1
+    mat.specular_intensity = 0.125                     # specify specular intensity
+    curveOBJ.active_material = mat                     # assign this material to our curveObject
+    curveOBJ.material_slots[0].link = 'OBJECT'         # link material in slot 0 to object
+    curveOBJ.material_slots[0].material = mat          # link material in slot 0 to our material
+    return curveOBJ                                    # return reference to this curve object
+
+
+def CreateFiberFromTextData(pack):
+    lsPoints = []
+    for d in pack:
+        point = Vector((float(d[2]),float(d[3]),float(d[4]))) * SCALE_MULT
+        print(point)
+        lsPoints.append(point)
+    length = 0
+    if len(lsPoints) > 2:
+        p0 = lsPoints[0]
+        p1 = lsPoints[-1]
+        length = math.sqrt( (p1.x - p0.x)*(p1.x - p0.x) +  (p1.y - p0.y)*(p1.y - p0.y) + (p1.z - p0.z)*(p1.z - p0.z) )
+    return lsPoints, length
+
+
+
+#.2.Get the fiber direction ()
+def GetFiberDirection(fiberPoints):
+    vecs=[]
+    for i in range(0, len(fiberPoints)-1):
+        p0 = fiberPoints[i]
+        p1 = fiberPoints[i + 1]
+        v = p1 - p0
+        vecs.append(v)
+        #CreateCurve([p0, p1] , 0.1, (0,255,0,255), False)
+    vdir = Vector((0,0,0))
+    for v in vecs:
+        vdir += v
+    vdir = vdir/len(vecs)
+    return vdir.normalized()
+
+#.3.Compute the angle between fiber direction and the apodeme direction. & draw it
+
+#.4.Produce the csv file for the reference
+
+#--------------------------------------------------------------------------
+#automate file input and image/scene generation via blender/python console
+#--------------------------------------------------------------------------
+
+p1,p2,p3,p4 = ReadApodemeData(FILE_MARKERS)
+
+#darta verts points
+CreatePointAtLocation(p1)
+CreatePointAtLocation(p2)
+CreatePointAtLocation(p3)
+CreatePointAtLocation(p4)
+
+
+directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
+#apodeme - directional
+CreateCurve([v34mid,v12mid], 0.1 * 0.01 * SCALE_MULT, (0,255,0,255), False)
+#normilized apodeme
+normalApodeme = directionVector.normalized()
+CreateCurve([Vector((0,0,0)),normalApodeme], 0.1 * 0.01 * SCALE_MULT, (0,255,0,255), False)
+
+
+#for each fiber:
+filepath = bpy.data.filepath
+directory = os.path.dirname(filepath)
+fiberFilePath = os.path.join(directory,FILE_FIBERS)
+allFiberlines = ReadFiberData(fiberFilePath)
+
+rawDirections = []
+
+for i in range(0, len(allFiberlines)):
+    lines = allFiberlines[i]
+    #create fiber from data
+    fiberPoints, length = CreateFiberFromTextData(lines)
+    #if we got enough poinst:
+    if len(fiberPoints):
+        CreateCurve(fiberPoints, 0.1 * 0.01 * SCALE_MULT, (255,128,0,255), False)
+        fiberDirection = GetFiberDirection(fiberPoints)
+        #create direction curve
+        CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], 0.1 * 0.01 * SCALE_MULT, (255,0,0,255), False)
+        #draw nomalized fiber at origin for debug:
+        CreateCurve([Vector((0,0,0)),fiberDirection], 0.1 * 0.01 * SCALE_MULT, (255,0,0,255), False)
+        #compute angle
+        angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
+
+        #append for output to *.csv
+        rawDirections.append(angle)
+
+
+# write directions to one column - csv
+FILE_DIRECTIONS =  os.path.join(directory,"out-directions.csv")
+strDirections=[str(s) for s in rawDirections]
+with open(FILE_DIRECTIONS,'w') as f:
+    f.writelines('\n'.join(strDirections))
+
+
+
+#---------------------- QUICK PLOT --------------------------------
+#pip3 install matplotlib
+
+#plt.plot(rawDirections)
+#plt.show()
+#plt.savefig('out-directions.png')
