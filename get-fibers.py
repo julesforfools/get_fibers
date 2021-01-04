@@ -55,23 +55,23 @@ def GetApodemeDirection(p1,p2,p3,p4):
 
 
 ### Read Muscle Fiber Data from swc-file ###
-def ReadFiberData(filename):
-    textlines=[]
-    with open(filename, 'r') as f:
+def ReadFiberData(filename):                                    # start the function
+    textlines=[]                                                # create an empty list object
+    with open(filename, 'r') as f:                              # load the file into python
         textlines = f.readlines()
-    textlines = [l.rstrip('\n').lstrip() for l in textlines]
-    lines=[]
-    for line in textlines:
-        data = line.split(' ')
-        if len(data) <=  0:
+    textlines = [l.rstrip('\n').lstrip() for l in textlines]    # remove the '\n' that indicates a new line
+    lines=[]                                                    # create an empty list object for the final output
+    for line in textlines:                                      # initiate final iterating loop
+        data = line.split(' ')                                  # the current line is assignes to 'data', it is split by space
+        if len(data) <=  0:                                     # this finishes the loop when there are no lines left
             continue
-        pack = None
-        if data[-1] == "-1":
-            pack = []
-            lines.append(pack)
+        pack = None                                             # Create NoneType object, which will be one fiber as an element to be appended to the list
+        if data[-1] == "-1":                                    # '[-1]' conveniently indexes the last position
+            pack = []                                           # if we hit a '-1' we restart pack
+            lines.append(pack)                                  # if we hit a '-1' we append pack to lines
         else:
-            pack = lines[-1]
-        pack.append(data)
+            pack = lines[-1]                                    # if we don't hit a '-1' we use the current (last) index in pack
+        pack.append(data)                                       # we add the current line to pack
     return lines
 
 ### Create Points from landmarks ###
