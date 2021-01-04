@@ -21,7 +21,7 @@ SCALE_MULT = sys.argv[6]
 ### Set the scale for visualization in Blender ###
 if SCALE_MULT == 'mm':
     SCALE_MULT = 0.01
-if SCALE_MULT == 'mi':
+if SCALE_MULT == 'um':
     SCALE_MULT = 10
 
 
@@ -80,7 +80,7 @@ def CreatePointAtLocation(location,size=0.1):
     #cube = bpy.context.active_object
 
 ### Create Curves from apodeme data ###
-def CreateCurve(dataPoints,thickness,color,use_cyclic):
+def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     # create the Curve Data object
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
     curveData.dimensions = '3D'
@@ -101,7 +101,7 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic):
     curveOBJ = bpy.data.objects.new('myCurve', curveData) # crete new curve obj with the curveData
     scene = bpy.context.scene                            # get reference to our scene
     scene.collection.objects.link(curveOBJ)
-    bpy.data.collections[0].objects.link(curveOBJ)
+    bpy.data.collections[collection].objects.link(curveOBJ)
     #creating and assigning new material
     mat = bpy.data.materials.new("matBase")            # Create new material
     mat.diffuse_color = color                          # set diffuse color to our color
@@ -162,12 +162,24 @@ SCREEN_AREA.spaces.active.clip_end = 10000 * SCALE_MULT
 #Delete the default objects
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
+context = bpy.context
+scene = context.scene
 
+for c in scene.collection.children:
+    scene.collection.children.unlink(c)
+for c in bpy.data.collections:
+    if not c.users:
+        bpy.data.collections.remove(c)
 
 #--------------------------------------------------------------------------
 #Automated file input and image/scene generation via blender/python console
 #--------------------------------------------------------------------------
 
+####Create a layer for the apodeme####
+tendon_col = bpy.data.collections.new("Apodeme")
+bpy.context.scene.collection.children.link(tendon_col)
+#tendon_sel = bpy.context.view_layer.layer_collection.children[tendon_col.name]
+#bpy.context.view_layer.active_layer_collection = tendon_sel
 
 ####Read and draw the apodeme####
 p1,p2,p3,p4 = ReadApodemeData(FILE_MARKERS)
@@ -180,10 +192,18 @@ CreatePointAtLocation(p4)
 
 directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
 #apodeme - directional
-CreateCurve(dataPoints = [v34mid,v12mid], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False)#thickness = 10 * SCALE_MULT
+CreateCurve(dataPoints = [v34mid,v12mid], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Apodeme")#thickness = 10 * SCALE_MULT
 #normalized apodeme
 normalApodeme = directionVector.normalized()
-CreateCurve([Vector((0,0,0)),normalApodeme * 100 * SCALE_MULT], SCALE_MULT, (0,255,0,255), False)#thickness = 10 * SCALE_MULT
+CreateCurve([Vector((0,0,0)),normalApodeme * 100 * SCALE_MULT], SCALE_MULT, (0,255,0,255), False, collection = "Apodeme")#thickness = 10 * SCALE_MULT
+
+####Create layers for the fibers####
+fibers_col = bpy.data.collections.new("Fibers")
+bpy.context.scene.collection.children.link(fibers_col)
+normalized_col = bpy.data.collections.new("Normalized")
+bpy.context.scene.collection.children.link(normalized_col)
+straight_col = bpy.data.collections.new("Straightened")
+bpy.context.scene.collection.children.link(straight_col)
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
@@ -201,7 +221,7 @@ for i in range(0, len(allFiberlines)):
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(fiberPoints, SCALE_MULT, (255,128,0,255), False)
+        CreateCurve(fiberPoints, SCALE_MULT, (255,128,0,255), False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
@@ -210,22 +230,22 @@ for i in range(0, len(allFiberlines)):
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False)
+            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
             #draw nomalized fiber at origin for debug and flipped:
-            CreateCurve([Vector((0,0,0)),-(fiberDirection * 100 * SCALE_MULT)], SCALE_MULT, (255,0,0,255), False)
+            CreateCurve([Vector((0,0,0)),-(fiberDirection * 100 * SCALE_MULT)], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False)
+            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
             #draw nomalized fiber at origin for debug:
-            CreateCurve([Vector((0,0,0)),fiberDirection * 100 * SCALE_MULT], SCALE_MULT, (255,0,0,255), False)
+            CreateCurve([Vector((0,0,0)),fiberDirection * 100 * SCALE_MULT], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
 
 
 #--------------------------------------------------------------------------
 # Write attachment angles to one column - csv
 #--------------------------------------------------------------------------
-FILE_DIRECTIONS =  os.path.join(directory,"out-directions.csv")
+FILE_DIRECTIONS =  os.path.join(directory,"out-streams.csv")
 strDirections=[str(s) for s in rawDirections]
 with open(FILE_DIRECTIONS,'w') as f:
     f.writelines('\n'.join(strDirections))
