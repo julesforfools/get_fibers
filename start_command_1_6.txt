@@ -1,0 +1,9 @@
+### Run Pavel's Fiber Script ###
+/Applications/Blender.app/Contents/MacOS/Blender -P get-streams_1_3.py -- Landmarks.landmarkAscii M_pharaonis_stream.lines um
+"C:\Program Files\Blender Foundation\Blender 2.82\blender.exe" -P get-streams_1_5.py -- Landmarks.landmarkAscii stream.lines um 50
+
+"C:\Program Files\Blender Foundation\Blender 2.82\blender.exe" -P get-fibers_1_4.py -- Landmarks.landmarkAscii M_pharaonis_fibers.swc um 50
+
+### Blender from Command Line ###
+Katzkes-MacBook-Pro:~ jkatzke$ /Applications/Blender.app/Contents/MacOS/Blender -b --python-console
+C:\Users\Julian>"C:\Program Files\Blender Foundation\Blender 2.82\blender.exe" -b --python-console
