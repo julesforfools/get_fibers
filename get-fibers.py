@@ -20,13 +20,13 @@ FILE_FIBERS = sys.argv[5]
 SCALE_MULT = sys.argv[6]
 ### Set the scale for visualization in Blender ###
 if SCALE_MULT == 'mm':
-    SCALE_MULT = 0.01
+    SCALE_MULT = 1
 if SCALE_MULT == 'um':
-    SCALE_MULT = 10
+    SCALE_MULT = 0.001
 
 
 ### Read Apodeme/Tendon Data from 4 landmarks ###
-def ReadApodemeData(filename):
+def ReadApodemeData(filename, scale):
     p1,p2,p3,p4 = Vector((0,0,0)), Vector((0,0,0)), Vector((0,0,0)), Vector((0,0,0)) #p1,p2 are the apodeme/tendon landmarks at the origin. p3,p4 are the apodeme/tendon landmarks along the line of action.
     lines = []
     with open(filename, 'r') as f:
@@ -42,10 +42,10 @@ def ReadApodemeData(filename):
                 points = []
                 for pd in pointData:
                     points.append(pd.split(' '))
-                p1 = Vector((float(points[0][0]),float(points[0][1]),float(points[0][2])))#*SCALE_MULT
-                p2 = Vector((float(points[1][0]),float(points[1][1]),float(points[1][2])))#*SCALE_MULT
-                p3 = Vector((float(points[2][0]),float(points[2][1]),float(points[2][2])))#*SCALE_MULT
-                p4 = Vector((float(points[3][0]),float(points[3][1]),float(points[3][2])))#*SCALE_MULT
+                p1 = Vector((float(points[0][0]),float(points[0][1]),float(points[0][2])))*scale
+                p2 = Vector((float(points[1][0]),float(points[1][1]),float(points[1][2])))*scale
+                p3 = Vector((float(points[2][0]),float(points[2][1]),float(points[2][2])))*scale
+                p4 = Vector((float(points[3][0]),float(points[3][1]),float(points[3][2])))*scale
     return p1,p2,p3,p4
 
 def GetApodemeDirection(p1,p2,p3,p4):
@@ -75,7 +75,7 @@ def ReadFiberData(filename):                                    # start the func
     return lines
 
 ### Create Points from landmarks ###
-def CreatePointAtLocation(location,size=0.1):
+def CreatePointAtLocation(location,size=0.05):
     #scene = bpy.context.scene
     bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location) #size=size * 0.01 * SCALE_MULT
     #cube = bpy.context.active_object
@@ -114,10 +114,10 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     return curveOBJ                                    # return reference to this curve object
 
 
-def CreateFiberFromTextData(pack):
+def CreateFiberFromTextData(pack, scale):
     lsPoints = []
     for d in pack:
-        point = Vector((float(d[2]),float(d[3]),float(d[4])))# * SCALE_MULT
+        point = Vector((float(d[2]),float(d[3]),float(d[4]))) * scale
         #print(point)
         lsPoints.append(point)
     length = 0
@@ -147,18 +147,19 @@ def GetFiberDirection(fiberPoints):
 #--------------------------------------------------------------------------
 #### Adjust the scene for tomography data ####
 #--------------------------------------------------------------------------
-#The units are not carried over correctly, so what has been at an x-position of 1000 micrometers would now be at 1000 m, which is out of bounds for the Blender viewer standard
-#The next bit expands the viewer area
+#The units are not carried over correctly, so what has been at an x-position of 1000 micrometers would now be at 1000 m, which is out of bounds for the Blender viewer standard!
+#That's why one arg is SCALE_MULT, the outcommented codes below expand the viewer scene if you do 3D analysis on elephants or what not
 
 #bpy.context.scene.unit_settings.scale_length = 1e-05
 #bpy.context.scene.unit_settings.length_unit = 'MICROMETERS'
 #bpy.context.space_data.clip_end = 10000 * SCALE_MULT
+#SCREEN_AREA.spaces.active.clip_end = 10000 * SCALE_MULT
 
 for SCREEN_AREA in bpy.context.screen.areas:
     if SCREEN_AREA.type == 'VIEW_3D':
         break
 
-SCREEN_AREA.spaces.active.clip_end = 10000 * SCALE_MULT
+
 
 #Delete the default objects
 bpy.ops.object.select_all(action='SELECT')
@@ -176,14 +177,18 @@ for c in bpy.data.collections:
 #Automated file input and image/scene generation via blender/python console
 #--------------------------------------------------------------------------
 
-####Create a layer for the apodeme####
-tendon_col = bpy.data.collections.new("Apodeme")
+####Create layers for different visualizations####
+tendon_col = bpy.data.collections.new("Tendon/Apodeme")
 bpy.context.scene.collection.children.link(tendon_col)
-#tendon_sel = bpy.context.view_layer.layer_collection.children[tendon_col.name]
-#bpy.context.view_layer.active_layer_collection = tendon_sel
+fibers_col = bpy.data.collections.new("Fibers")
+bpy.context.scene.collection.children.link(fibers_col)
+normalized_col = bpy.data.collections.new("Normalized")
+bpy.context.scene.collection.children.link(normalized_col)
+straight_col = bpy.data.collections.new("Straightened")
+bpy.context.scene.collection.children.link(straight_col)
 
 ####Read and draw the apodeme####
-p1,p2,p3,p4 = ReadApodemeData(FILE_MARKERS)
+p1,p2,p3,p4 = ReadApodemeData(FILE_MARKERS, SCALE_MULT)
 
 #data verts points in Blender
 CreatePointAtLocation(p1)
@@ -193,21 +198,10 @@ CreatePointAtLocation(p4)
 
 directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
 #apodeme - directional
-CreateCurve(dataPoints = [v34mid,v12mid], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Apodeme")# previous versions: thickness = 10 * SCALE_MULT
+CreateCurve(dataPoints = [v34mid,v12mid], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
 #normalized apodeme
 normalApodeme = directionVector.normalized()
-CreateCurve([Vector((0,0,0)),normalApodeme * 100 * SCALE_MULT], SCALE_MULT, (0,255,0,255), False, collection = "Apodeme")# previous versions: thickness = 10 * SCALE_MULT
-
-####Create layers for the fibers####
-fibers_col = bpy.data.collections.new("Fibers")
-bpy.context.scene.collection.children.link(fibers_col)
-normalized_col = bpy.data.collections.new("Normalized")
-bpy.context.scene.collection.children.link(normalized_col)
-straight_col = bpy.data.collections.new("Straightened")
-bpy.context.scene.collection.children.link(straight_col)
-#fibers_sel = bpy.context.view_layer.layer_collection.children[fibers_col.name]
-#normalized_sel = bpy.context.view_layer.layer_collection.children[normalized_col.name]
-#straight_sel = bpy.context.view_layer.layer_collection.children[straight_col.name]
+CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme * 100 * 0.1], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
@@ -221,11 +215,11 @@ rawDirections = []
 for i in range(0, len(allFiberlines)):
     lines = allFiberlines[i]
     #create fiber from data
-    fiberPoints, length = CreateFiberFromTextData(lines)
+    fiberPoints, length = CreateFiberFromTextData(lines, SCALE_MULT)
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(fiberPoints, SCALE_MULT, (255,128,0,255), False, collection = "Fibers")
+        CreateCurve(dataPoints = fiberPoints, thickness = SCALE_MULT, color = (255,128,0,255), use_cyclic = False, collection = "Fibers") #CreateCurve(dataPoints,thickness,color,use_cyclic,collection)
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
