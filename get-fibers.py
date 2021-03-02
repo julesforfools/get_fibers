@@ -99,12 +99,13 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
         i+=1
     curveData.splines[0].use_cyclic_u = use_cyclic      # specify if the curve is cyclic or not
     curveData.splines[0].use_endpoint_u = True          # draw including endpoints
-    curveOBJ = bpy.data.objects.new('myCurve', curveData) # crete new curve obj with the curveData
+    curveOBJ = bpy.data.objects.new(str(collection), curveData) # crete new curve obj with the curveData
     scene = bpy.context.scene                            # get reference to our scene
     scene.collection.objects.link(curveOBJ)
     bpy.data.collections[collection].objects.link(curveOBJ)
     #creating and assigning new material
-    mat = bpy.data.materials.new("matBase")            # Create new material
+    #if bpy.data.materials[str(collection)]:             # if there already is a material for our collection, then
+    mat = bpy.data.materials.new(str(collection))            # Create new material
     mat.diffuse_color = color                          # set diffuse color to our color
     mat.metallic = 1
     mat.specular_intensity = 0.125                     # specify specular intensity
@@ -159,8 +160,6 @@ for SCREEN_AREA in bpy.context.screen.areas:
     if SCREEN_AREA.type == 'VIEW_3D':
         break
 
-
-
 #Delete the default objects
 bpy.ops.object.select_all(action='SELECT')
 bpy.ops.object.delete(use_global=False)
@@ -198,10 +197,10 @@ CreatePointAtLocation(p4)
 
 directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
 #apodeme - directional
-CreateCurve(dataPoints = [v34mid,v12mid], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [v34mid,v12mid], thickness = 0.05, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
 #normalized apodeme
 normalApodeme = directionVector.normalized()
-CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme * 100 * 0.1], thickness = SCALE_MULT, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = 0.05, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
@@ -219,7 +218,7 @@ for i in range(0, len(allFiberlines)):
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(dataPoints = fiberPoints, thickness = SCALE_MULT, color = (255,128,0,255), use_cyclic = False, collection = "Fibers") #CreateCurve(dataPoints,thickness,color,use_cyclic,collection)
+        CreateCurve(dataPoints = fiberPoints, thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
@@ -228,16 +227,16 @@ for i in range(0, len(allFiberlines)):
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
-            CreateCurve([Vector((0,0,0)),-(fiberDirection * 100 * SCALE_MULT)], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
-            CreateCurve([fiberPoints[0], fiberPoints[0]+fiberDirection*length], SCALE_MULT, (255,0,0,255), False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
             #draw nomalized fiber at origin for debug and clear visualization:
-            CreateCurve([Vector((0,0,0)),fiberDirection * 100 * SCALE_MULT], SCALE_MULT, (255,0,0,255), False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
 
 
 #--------------------------------------------------------------------------
