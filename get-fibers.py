@@ -81,38 +81,40 @@ def CreatePointAtLocation(location,size=0.05):
     #cube = bpy.context.active_object
 
 ### Create Curves from apodeme data ###
-def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
+def CreateCurve2(dataPoints,thickness,color,use_cyclic,collection):
     # create the Curve Data object
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
     curveData.dimensions = '3D'
-    curveData.resolution_u = 3                          # quality of the curve in the view
-    curveData.render_resolution_u = 3                   # quality of the curve in Render
-    curveData.bevel_depth = thickness                   # Thickness
-    curveData.bevel_resolution = 3                      # quality of the bevel
-    curveData.fill_mode = 'FULL'                        # type of bevel
+    curveData.resolution_u = 3                                  # quality of the curve in the view
+    curveData.render_resolution_u = 3                           # quality of the curve in Render
+    curveData.bevel_depth = thickness                           # Thickness
+    curveData.bevel_resolution = 3                              # quality of the bevel
+    curveData.fill_mode = 'FULL'                                # type of bevel
     # map points to spline
-    polyline = curveData.splines.new('NURBS')           # create a polyline in the curveData
-    polyline.points.add(len(dataPoints)-1)                  # specify the total number of points
+    polyline = curveData.splines.new('NURBS')                   # create a polyline in the curveData
+    polyline.points.add(len(dataPoints)-1)                      # specify the total number of points
     i = 0
-    for p in dataPoints:                                    # open the loop. for each index(i) and tuple(coord)
-        polyline.points[i].co = Vector((p.x, p.y, p.z,1))  # assign to the point at index, the corresponded x,y,z
+    for p in dataPoints:                                        # open the loop. for each index(i) and tuple(coord)
+        polyline.points[i].co = Vector((p.x, p.y, p.z,1))       # assign to the point at index, the corresponded x,y,z
         i+=1
-    curveData.splines[0].use_cyclic_u = use_cyclic      # specify if the curve is cyclic or not
-    curveData.splines[0].use_endpoint_u = True          # draw including endpoints
+    curveData.splines[0].use_cyclic_u = use_cyclic              # specify if the curve is cyclic or not
+    curveData.splines[0].use_endpoint_u = True                  # draw including endpoints
     curveOBJ = bpy.data.objects.new(str(collection), curveData) # crete new curve obj with the curveData
-    scene = bpy.context.scene                            # get reference to our scene
+    scene = bpy.context.scene                                   # get reference to our scene
     scene.collection.objects.link(curveOBJ)
     bpy.data.collections[collection].objects.link(curveOBJ)
     #creating and assigning new material
-    #if bpy.data.materials[str(collection)]:             # if there already is a material for our collection, then
-    mat = bpy.data.materials.new(str(collection))            # Create new material
-    mat.diffuse_color = color                          # set diffuse color to our color
-    mat.metallic = 1
-    mat.specular_intensity = 0.125                     # specify specular intensity
-    curveOBJ.active_material = mat                     # assign this material to our curveObject
-    curveOBJ.material_slots[0].link = 'OBJECT'         # link material in slot 0 to object
-    curveOBJ.material_slots[0].material = mat          # link material in slot 0 to our material
-    return curveOBJ                                    # return reference to this curve object
+    if str(collection) in bpy.data.materials:                   # if there already is a material for our collection, then
+        mat = bpy.data.materials[str(collection)]               # the new object is added to the same material
+    else:
+        mat = bpy.data.materials.new(str(collection))           # Create new material
+        mat.diffuse_color = color                               # set diffuse color to our color
+        mat.metallic = 1
+        mat.specular_intensity = 0.125                          # specify specular intensity
+    curveOBJ.active_material = mat                              # assign this material to our curveObject
+    curveOBJ.material_slots[0].link = 'OBJECT'                  # link material in slot 0 to object
+    curveOBJ.material_slots[0].material = mat                   # link material in slot 0 to our material
+    return curveOBJ                                             # return reference to this curve object
 
 
 def CreateFiberFromTextData(pack, scale):
