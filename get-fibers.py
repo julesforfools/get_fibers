@@ -223,22 +223,26 @@ for i in range(0, len(allFiberlines)):
         CreateCurve(dataPoints = fiberPoints, thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
-        angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
+        angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property
         if angle >= 90:
             angle = abs(angle - 180)
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
             CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
+            bpy.context.object.data["attachment_angle"] = angle
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
             CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
+            bpy.context.object.data["attachment_angle"] = angle
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
             CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
+            bpy.context.object.data["attachment_angle"] = angle
             #draw nomalized fiber at origin for debug and clear visualization:
             CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
+            bpy.context.object.data["attachment_angle"] = angle
 
 
 #--------------------------------------------------------------------------
