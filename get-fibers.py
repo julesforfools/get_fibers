@@ -86,7 +86,7 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
     curveData.dimensions = '3D'
     curveData.resolution_u = 3                                  # quality of the curve in the view
-    curveData.render_resolution_u = 3                           # quality of the curve in Render
+    curveData.render_resolution_u = 5                           # quality of the curve in Render
     curveData.bevel_depth = thickness                           # Thickness
     curveData.bevel_resolution = 3                              # quality of the bevel
     curveData.fill_mode = 'FULL'                                # type of bevel
@@ -109,7 +109,7 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
         mat = bpy.data.materials[str(collection)]               # the new object is added to the same material
     else:
         mat = bpy.data.materials.new(str(collection))           # Create new material
-        mat.diffuse_color = color                               # set diffuse color to our color
+        mat.diffuse_color = color                               # set diffuse color to our color in viewport
         mat.metallic = 1
         mat.specular_intensity = 0.125                          # specify specular intensity
     curveOBJ.active_material = mat                              # assign this material to our curveObject
@@ -231,19 +231,23 @@ for i in range(0, len(allFiberlines)):
             rawDirections.append(angle)
             #create direction curve flipped
             CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
-            bpy.context.object.data["attachment_angle"] = angle
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
             CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
-            bpy.context.object.data["attachment_angle"] = angle
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
             CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
-            bpy.context.object.data["attachment_angle"] = angle
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works 
             #draw nomalized fiber at origin for debug and clear visualization:
             CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
-            bpy.context.object.data["attachment_angle"] = angle
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
 
 
 #--------------------------------------------------------------------------

@@ -11,15 +11,46 @@ class OBJECT_OT_recolor_by_angle(bpy.types.Operator):
     def execute(self, context):
 
         # create the gradient material
-        if not "Gradient_Angle" in bpy.data.materials: # If material doesn't exist yet,
-            bpy.data.materials.new("Gradient_Angle") # create it
-        mat = bpy.data.materials["Gradient_Angle"]
-        mat.use_nodes = True # Use material nodes
-        mat.diffuse_color = (100,255,0,255) # Assign Viewport material color
-        tree = mat.node_tree
-        nodes = tree.nodes
+        if not "Gradient_Angle" in bpy.data.materials:                          # If material doesn't exist yet,
+            bpy.data.materials.new("Gradient_Angle")                            # create it
+        mat = bpy.data.materials["Gradient_Angle"]                              # Assign material to variable
+        mat.use_nodes = True                                                    # Use material nodes
+        mat.diffuse_color = (100,255,0,255)                                     # Assign Viewport material color
+        tree = mat.node_tree                                                    # Assign node tree to variable
+        nodes = tree.nodes                                                      # Assign nodes to variable
+        #list(bpy.data.materials["Gradient_Angle"].node_tree.nodes)
+        
+        # assign nodes to variables
+        node_bsdf = nodes['Principled BSDF']
+        nodes.new('ShaderNodeValToRGB')
+        node_ramp = nodes['ColorRamp']
+        nodes.new('ShaderNodeMath')
+        node_math = nodes['Math']
+        nodes.new('ShaderNodeValue')
+        node_value = nodes['Value']
+        
+        # link the nodes together, bsdf is already linked to Output node
+        tree.links.new(node_ramp.outputs['Color'], node_bsdf.inputs['Base Color']) # Connect ColorRamp and BSDF
+        tree.links.new(node_math.outputs['Value'], node_ramp.inputs[0]) # Connect Math and ColorRamp
+        #tree.links.new(node_value.outputs['Value'], node_math.inputs[0]) # Connect Value and Math, not yet supported
 
-
+        # customize the nodes
+        # color ramp Blue/Red gradient
+        node_ramp.color_ramp.elements[0].color = (0,0,1,1)
+        node_ramp.color_ramp.elements[1].color = (1,0,0,1) # Don't use RGB 0/255 here, it fs up the ramp
+        # Math module division and by 90
+        node_math.operation = "DIVIDE"
+        node_math.inputs[1].default_value = 90
+        # value needs an input!
+        node_value.outputs[0].default_value = 0
+        #node_value.driver_add("attachment_angle")
+        
+        # placeholder vor value node: Object Info node and pass index
+        nodes.new('ShaderNodeObjectInfo')
+        node_info = nodes['Object Info']
+        tree.links.new(node_info.outputs[2], node_math.inputs[0])
+        
+        
         # select objects in 'Straightened'
         context.view_layer.active_layer_collection = context.view_layer.layer_collection.children['Straightened']
 
@@ -28,6 +59,8 @@ class OBJECT_OT_recolor_by_angle(bpy.types.Operator):
                 ob.select_set(True)
         for ob in context.selected_objects:
                 ob.active_material = mat
+                
+
 
         return {'FINISHED'}
 
