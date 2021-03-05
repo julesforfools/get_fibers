@@ -81,7 +81,7 @@ def CreatePointAtLocation(location,size=0.05):
     #cube = bpy.context.active_object
 
 ### Create Curves from apodeme data ###
-def CreateCurve2(dataPoints,thickness,color,use_cyclic,collection):
+def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     # create the Curve Data object
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
     curveData.dimensions = '3D'
@@ -90,6 +90,7 @@ def CreateCurve2(dataPoints,thickness,color,use_cyclic,collection):
     curveData.bevel_depth = thickness                           # Thickness
     curveData.bevel_resolution = 3                              # quality of the bevel
     curveData.fill_mode = 'FULL'                                # type of bevel
+    curveData.use_fill_caps = True                              # close the curve at both caps
     # map points to spline
     polyline = curveData.splines.new('NURBS')                   # create a polyline in the curveData
     polyline.points.add(len(dataPoints)-1)                      # specify the total number of points
