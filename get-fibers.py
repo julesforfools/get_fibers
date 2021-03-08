@@ -76,43 +76,43 @@ def ReadFiberData(filename):                                    # start the func
 
 ### Create Points from landmarks ###
 def CreatePointAtLocation(location,size=0.05):
-    #scene = bpy.context.scene
-    bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location) #size=size * 0.01 * SCALE_MULT
-    #cube = bpy.context.active_object
+    bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location)
 
 ### Create Curves from apodeme data ###
 def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     # create the Curve Data object
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
     curveData.dimensions = '3D'
-    curveData.resolution_u = 3                          # quality of the curve in the view
-    curveData.render_resolution_u = 3                   # quality of the curve in Render
-    curveData.bevel_depth = thickness                   # Thickness
-    curveData.bevel_resolution = 3                      # quality of the bevel
-    curveData.fill_mode = 'FULL'                        # type of bevel
+    curveData.resolution_u = 3                                  # quality of the curve in the view
+    curveData.render_resolution_u = 5                           # quality of the curve in Render
+    curveData.bevel_depth = thickness                           # Thickness
+    curveData.bevel_resolution = 3                              # quality of the bevel
+    curveData.fill_mode = 'FULL'                                # type of bevel
+    curveData.use_fill_caps = True                              # close the curve at both caps
     # map points to spline
-    polyline = curveData.splines.new('NURBS')           # create a polyline in the curveData
-    polyline.points.add(len(dataPoints)-1)                  # specify the total number of points
+    polyline = curveData.splines.new('NURBS')                   # create a polyline in the curveData
+    polyline.points.add(len(dataPoints)-1)                      # specify the total number of points
     i = 0
-    for p in dataPoints:                                    # open the loop. for each index(i) and tuple(coord)
-        polyline.points[i].co = Vector((p.x, p.y, p.z,1))  # assign to the point at index, the corresponded x,y,z
+    for p in dataPoints:                                        # open the loop. for each index(i) and tuple(coord)
+        polyline.points[i].co = Vector((p.x, p.y, p.z,1))       # assign to the point at index, the corresponded x,y,z
         i+=1
-    curveData.splines[0].use_cyclic_u = use_cyclic      # specify if the curve is cyclic or not
-    curveData.splines[0].use_endpoint_u = True          # draw including endpoints
+    curveData.splines[0].use_cyclic_u = use_cyclic              # specify if the curve is cyclic or not
+    curveData.splines[0].use_endpoint_u = True                  # draw including endpoints
     curveOBJ = bpy.data.objects.new(str(collection), curveData) # crete new curve obj with the curveData
-    scene = bpy.context.scene                            # get reference to our scene
+    scene = bpy.context.scene                                   # get reference to our scene
     scene.collection.objects.link(curveOBJ)
     bpy.data.collections[collection].objects.link(curveOBJ)
     #creating and assigning new material
-    #if bpy.data.materials[str(collection)]:             # if there already is a material for our collection, then
-    mat = bpy.data.materials.new(str(collection))            # Create new material
-    mat.diffuse_color = color                          # set diffuse color to our color
-    mat.metallic = 1
-    mat.specular_intensity = 0.125                     # specify specular intensity
-    curveOBJ.active_material = mat                     # assign this material to our curveObject
-    curveOBJ.material_slots[0].link = 'OBJECT'         # link material in slot 0 to object
-    curveOBJ.material_slots[0].material = mat          # link material in slot 0 to our material
-    return curveOBJ                                    # return reference to this curve object
+    if str(collection) in bpy.data.materials:                   # if there already is a material for our collection, then
+        mat = bpy.data.materials[str(collection)]               # the new object is added to the same material
+    else:
+        mat = bpy.data.materials.new(str(collection))           # Create new material
+        mat.diffuse_color = color                               # set diffuse color to our color in viewport
+    curveOBJ.active_material = mat                              # assign this material to our curveObject
+    curveOBJ.material_slots[0].link = 'OBJECT'                  # link material in slot 0 to object
+    curveOBJ.material_slots[0].material = mat                   # link material in slot 0 to our material
+    bpy.context.view_layer.objects.active = curveOBJ            # Set new curve object as active object
+    return curveOBJ                                             # return reference to this curve object
 
 
 def CreateFiberFromTextData(pack, scale):
@@ -129,7 +129,6 @@ def CreateFiberFromTextData(pack, scale):
     return lsPoints, length
 
 
-
 #### Get the fiber direction ###
 def GetFiberDirection(fiberPoints):
     vecs=[] #Create Empty list of vectors
@@ -144,6 +143,108 @@ def GetFiberDirection(fiberPoints):
     vdir = vdir/len(vecs)
     #CreateCurve([p0, p1] , 0.1, (0,255,0,255), False)
     return vdir.normalized()
+
+#--------------------------------------------------------------------------
+# Create a button in the scene tab to recolor the Straightened FIbers
+#--------------------------------------------------------------------------
+# Primary operator
+class OBJECT_OT_recolor_by_angle(bpy.types.Operator):
+    """Recolor all fibers according to attachment angle"""
+    bl_idname = "curve.recolor_by_angle"
+    bl_label = "Recolor by Attachment Angle"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # execute function
+    def execute(self, context):
+        # create the gradient material
+        if not "Gradient_Angle" in bpy.data.materials:                          # If material doesn't exist yet,
+            bpy.data.materials.new("Gradient_Angle")                            # create it
+        mat = bpy.data.materials["Gradient_Angle"]                              # Assign material to variable
+        mat.use_nodes = True                                                    # Use material nodes
+        mat.diffuse_color = (100,255,0,255)                                     # Assign Viewport material color
+        tree = mat.node_tree                                                    # Assign node tree to variable
+        nodes = tree.nodes                                                      # Assign nodes to variable
+
+        # assign nodes to variables
+        node_bsdf = nodes['Principled BSDF']
+        nodes.new('ShaderNodeValToRGB')
+        node_ramp = nodes['ColorRamp']
+        nodes.new('ShaderNodeMath')
+        node_math = nodes['Math']
+        nodes.new('ShaderNodeValue')
+        node_value = nodes['Value']
+
+        # link the nodes together, bsdf is already linked to Output node
+        tree.links.new(node_ramp.outputs['Color'], node_bsdf.inputs['Base Color']) # Connect ColorRamp and BSDF
+        tree.links.new(node_math.outputs['Value'], node_ramp.inputs[0]) # Connect Math and ColorRamp
+        #tree.links.new(node_value.outputs['Value'], node_math.inputs[0]) # Connect Value and Math, not yet supported
+
+        # customize the nodes
+        # color ramp Blue/Red gradient
+        node_ramp.color_ramp.elements[0].color = (0,0,1,1)
+        node_ramp.color_ramp.elements[1].color = (1,0,0,1) # Don't use RGB 0/255 here, it fs up the ramp
+        # Math module division and by 90
+        node_math.operation = "DIVIDE"
+        node_math.inputs[1].default_value = 90 # Assume muscle fibers attach at not more than 90 degrees
+        # value needs an input!
+        node_value.outputs[0].default_value = 0
+        #node_value.driver_add("attachment_angle") not yet supported
+
+        # placeholder vor value node: Object Info node and pass index
+        nodes.new('ShaderNodeObjectInfo')
+        node_info = nodes['Object Info']
+        tree.links.new(node_info.outputs[2], node_math.inputs[0])
+
+        # select objects in 'Straightened'
+        context.view_layer.active_layer_collection = context.view_layer.layer_collection.children['Straightened']
+
+        # act out the recoloring
+        for ob in bpy.data.collections['Straightened'].all_objects:
+            if ob.type == "CURVE":
+                ob.select_set(True)
+        for ob in context.selected_objects:
+                ob.active_material = mat
+
+        return {'FINISHED'}
+
+# Append to scene panel
+class SCENE_PT_recolor_by_angle(bpy.types.Panel):
+    """Panel for assigning a color gradient to Fibers"""
+    bl_label = "Recolor by Angle"
+    bl_idname = "SCENE_PT_add_spotlights_above_meshes"
+    bl_space_type = "PROPERTIES"
+    bl_region_type = "WINDOW"
+    bl_context = "scene"
+
+    def draw(self, context):
+        layout = self.layout
+        scene = context.scene
+        collection = context.collection
+
+        # Create a row to choose collection, not yet supported
+        #layout.label(text=" Choose Collection:")
+        #row = layout.row()
+        #row.template_ID(context, "collection")
+        #row.template_ID(context.view_layer.layer_collection, "collection", filter='AVAILABLE')
+        #row.template_ID(context.view_layer.layer_collection.collection, "children", filter='AVAILABLE')
+        #row.template_ID(context.view_layer.objects, "active", filter='AVAILABLE')
+        #row.operator_menu_enum("collection.remove", "select_objects", text = "Select object")
+
+        # Big render button
+        layout.label(text=" Recolor by Angle:")
+        row = layout.row()
+        row.scale_y = 3.0
+        row.operator("curve.recolor_by_angle")
+
+# Registration
+def register():
+    bpy.utils.register_class(OBJECT_OT_recolor_by_angle)
+    bpy.utils.register_class(SCENE_PT_recolor_by_angle)
+def unregister():
+    bpy.utils.unregister_class(OBJECT_OT_recolor_by_angle)
+    bpy.utils.unregister_class(SCENE_PT_recolor_by_angle)
+if __name__ == "__main__":
+    register()
 
 #--------------------------------------------------------------------------
 #### Adjust the scene for tomography data ####
@@ -197,10 +298,10 @@ CreatePointAtLocation(p4)
 
 directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
 #apodeme - directional
-CreateCurve(dataPoints = [v34mid,v12mid], thickness = 0.05, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [v34mid,v12mid], thickness = 0.05, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
 #normalized apodeme
 normalApodeme = directionVector.normalized()
-CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = 0.05, color = (0,255,0,255), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = 0.05, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
@@ -211,6 +312,8 @@ allFiberlines = ReadFiberData(fiberFilePath)
 
 rawDirections = []
 
+#bpy.ops.object.select_all(action='DESELECT')
+
 for i in range(0, len(allFiberlines)):
     lines = allFiberlines[i]
     #create fiber from data
@@ -218,25 +321,39 @@ for i in range(0, len(allFiberlines)):
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(dataPoints = fiberPoints, thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Fibers")
+        CreateCurve(dataPoints = fiberPoints, thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
-        angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0))))
+        angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property and save to .csv
         if angle >= 90:
             angle = abs(angle - 180)
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
-            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
-            CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
-            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (255,128,0,255), use_cyclic = False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
             #draw nomalized fiber at origin for debug and clear visualization:
-            CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (255,0,0,255), use_cyclic = False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
+            bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
+            bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
+
+    #curveOBJ.select_set(state=True)
+    #context.view_layer.objects.active = curveOBJ.select_set(state=True)
+    #curveOBJ.select_set(state=False)
+
+
 
 
 #--------------------------------------------------------------------------
