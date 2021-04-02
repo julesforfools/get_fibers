@@ -48,10 +48,15 @@ def ReadApodemeData(filename, scale):
                 p4 = Vector((float(points[3][0]),float(points[3][1]),float(points[3][2])))*scale
     return p1,p2,p3,p4
 
+### Calculate orientation of force production ###
 def GetApodemeDirection(p1,p2,p3,p4):
     v12mid = (p1+p2)/2 #Vector(( (p1.x+p2.x)/2.0, (p1.y+p2.y)/2.0, (p1.z+p2.z)/2.0 ))
     v34mid = (p3+p4)/2 #Vector(( (p3.x+p4.x)/2.0, (p3.y+p4.y)/2.0, (p3.z+p4.z)/2.0 ))
     return v12mid - v34mid, v12mid, v34mid
+
+### Create Points from landmarks ###
+def CreatePointAtLocation(location,size=0.05):
+    bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location)
 
 
 ### Read Muscle Fiber Data from swc-file ###
@@ -74,11 +79,37 @@ def ReadFiberData(filename):                                    # start the func
         pack.append(data)                                       # we add the current line to pack
     return lines
 
-### Create Points from landmarks ###
-def CreatePointAtLocation(location,size=0.05):
-    bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location)
+### Turn lines array into ...
+def CreateFiberFromTextData(pack, scale):
+    lsPoints = []
+    for d in pack:
+        point = Vector((float(d[2]),float(d[3]),float(d[4]))) * scale
+        #print(point)
+        lsPoints.append(point)
+    length = 0
+    if len(lsPoints) > 2:
+        p0 = lsPoints[0]
+        p1 = lsPoints[-1]
+        length = math.sqrt( (p1.x - p0.x)*(p1.x - p0.x) +  (p1.y - p0.y)*(p1.y - p0.y) + (p1.z - p0.z)*(p1.z - p0.z) )
+    return lsPoints, length
 
-### Create Curves from apodeme data ###
+#### Get the fiber direction ###
+def GetFiberDirection(fiberPoints):
+    vecs=[] #Create Empty list of vectors
+    for i in range(0, len(fiberPoints)-1):
+        p0 = fiberPoints[i]
+        p1 = fiberPoints[i + 1]
+        v = p1 - p0 #Directional vector from next to current point
+        vecs.append(v)
+    vdir = Vector((0,0,0))
+    for v in vecs:
+        vdir += v
+    vdir = vdir/len(vecs)
+    #CreateCurve([p0, p1] , 0.1, (0,255,0,255), False)
+    return vdir.normalized()
+
+
+### Create Curves from fiber data ###
 def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     # create the Curve Data object
     curveData = bpy.data.curves.new('myCurveData', type='CURVE')
@@ -102,10 +133,10 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     scene = bpy.context.scene                                   # get reference to our scene
     scene.collection.objects.link(curveOBJ)
     bpy.data.collections[collection].objects.link(curveOBJ)
-    #creating and assigning new material
+    #creating and assigning material
     if str(collection) in bpy.data.materials:                   # if there already is a material for our collection, then
         mat = bpy.data.materials[str(collection)]               # the new object is added to the same material
-    else:
+    else:                                                       # else:
         mat = bpy.data.materials.new(str(collection))           # Create new material
         mat.diffuse_color = color                               # set diffuse color to our color in viewport
     curveOBJ.active_material = mat                              # assign this material to our curveObject
@@ -114,35 +145,6 @@ def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
     bpy.context.view_layer.objects.active = curveOBJ            # Set new curve object as active object
     return curveOBJ                                             # return reference to this curve object
 
-
-def CreateFiberFromTextData(pack, scale):
-    lsPoints = []
-    for d in pack:
-        point = Vector((float(d[2]),float(d[3]),float(d[4]))) * scale
-        #print(point)
-        lsPoints.append(point)
-    length = 0
-    if len(lsPoints) > 2:
-        p0 = lsPoints[0]
-        p1 = lsPoints[-1]
-        length = math.sqrt( (p1.x - p0.x)*(p1.x - p0.x) +  (p1.y - p0.y)*(p1.y - p0.y) + (p1.z - p0.z)*(p1.z - p0.z) )
-    return lsPoints, length
-
-
-#### Get the fiber direction ###
-def GetFiberDirection(fiberPoints):
-    vecs=[] #Create Empty list of vectors
-    for i in range(0, len(fiberPoints)-1):
-        p0 = fiberPoints[i]
-        p1 = fiberPoints[i + 1]
-        v = p1 - p0 #Directional vector from next to current point
-        vecs.append(v)
-    vdir = Vector((0,0,0))
-    for v in vecs:
-        vdir += v
-    vdir = vdir/len(vecs)
-    #CreateCurve([p0, p1] , 0.1, (0,255,0,255), False)
-    return vdir.normalized()
 
 #--------------------------------------------------------------------------
 # Create a button in the scene tab to recolor the Straightened FIbers
@@ -311,6 +313,7 @@ fiberFilePath = os.path.join(directory,FILE_FIBERS)
 allFiberlines = ReadFiberData(fiberFilePath)
 
 rawDirections = []
+rawLengths = []
 
 #bpy.ops.object.select_all(action='DESELECT')
 
@@ -318,6 +321,7 @@ for i in range(0, len(allFiberlines)):
     lines = allFiberlines[i]
     #create fiber from data
     fiberPoints, length = CreateFiberFromTextData(lines, SCALE_MULT)
+    rawLengths.append(length)
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
@@ -364,11 +368,10 @@ strDirections=[str(s) for s in rawDirections]
 with open(FILE_DIRECTIONS,'w') as f:
     f.writelines('\n'.join(strDirections))
 
-
-
-#---------------------- QUICK PLOT --------------------------------
-#pip3 install matplotlib
-
-#plt.plot(rawDirections)
-#plt.show()
-#plt.savefig('out-directions.png')
+#--------------------------------------------------------------------------
+# Write fiber lengths to one column - csv
+#--------------------------------------------------------------------------
+FILE_LENGTHS =  os.path.join(directory,"out-lengths.csv")
+strLengths=[str(s) for s in rawLengths]
+with open(FILE_LENGTHS,'w') as f:
+    f.writelines('\n'.join(strLengths))
