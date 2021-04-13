@@ -23,7 +23,7 @@ if SCALE_MULT == 'mm':
     SCALE_MULT = 1
 if SCALE_MULT == 'um':
     SCALE_MULT = 0.001
-
+FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) >= 7 else SCALE_MULT
 
 ### Read Apodeme/Tendon Data from 4 landmarks ###
 def ReadApodemeData(filename, scale):
@@ -55,7 +55,7 @@ def GetApodemeDirection(p1,p2,p3,p4):
     return v12mid - v34mid, v12mid, v34mid
 
 ### Create Points from landmarks ###
-def CreatePointAtLocation(location,size=0.05):
+def CreatePointAtLocation(location,size=FIBER_DIAM):
     bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location)
 
 
@@ -188,11 +188,14 @@ class OBJECT_OT_recolor_by_angle(bpy.types.Operator):
         # Math module division and by 90
         node_math.operation = "DIVIDE"
         node_math.inputs[1].default_value = 90 # Assume muscle fibers attach at not more than 90 degrees
-        # value needs an input!
+        # Give Value an input!
         node_value.outputs[0].default_value = 0
-        #node_value.driver_add("attachment_angle") not yet supported
+        driv = node_value.outputs[0].driver_add("default_value")
+        driv.driver.expression = "100" #needs to link to Object's "attachment_angle" property
+        print(driv.driver.expression)
+        #bpy.data.materials['Gradient_Angle'].users
 
-        # placeholder vor value node: Object Info node and pass index
+        # placeholder for value node: Object Info node and pass index
         nodes.new('ShaderNodeObjectInfo')
         node_info = nodes['Object Info']
         tree.links.new(node_info.outputs[2], node_math.inputs[0])
@@ -300,10 +303,10 @@ CreatePointAtLocation(p4)
 
 directionVector, v12mid, v34mid = GetApodemeDirection(p1,p2,p3,p4)
 #apodeme - directional
-CreateCurve(dataPoints = [v34mid,v12mid], thickness = 0.05, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [v34mid,v12mid], thickness = FIBER_DIAM/2, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
 #normalized apodeme
 normalApodeme = directionVector.normalized()
-CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = 0.05, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
+CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = FIBER_DIAM/2, color = (0,1,0,1), use_cyclic = False, collection = "Tendon/Apodeme")
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
@@ -325,7 +328,7 @@ for i in range(0, len(allFiberlines)):
     #if we got enough points:
     if len(fiberPoints):
         #individual fiber - directional
-        CreateCurve(dataPoints = fiberPoints, thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
+        CreateCurve(dataPoints = fiberPoints, thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
         #compute angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property and save to .csv
@@ -334,22 +337,22 @@ for i in range(0, len(allFiberlines)):
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve flipped
-            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05,  color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = FIBER_DIAM/2,  color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened for later visualization
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
-            CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
         else:
             #append for output to *.csv
             rawDirections.append(angle)
             #create direction curve
-            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = 0.05, color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
+            CreateCurve(dataPoints = [fiberPoints[0], fiberPoints[0]+fiberDirection*length], thickness = FIBER_DIAM/2, color = (1,0.5,0,1), use_cyclic = False, collection = "Straightened")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
             #draw nomalized fiber at origin for debug and clear visualization:
-            CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = 0.05, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
+            CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
 
