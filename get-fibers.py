@@ -438,5 +438,14 @@ with open(FILE_LENGTHS,'w') as f:
 #--------------------------------------------------------------------------
 # Write Summary to csv
 #--------------------------------------------------------------------------
-vol1 = CalcVolume("Fibers", "Mesh", 0.1)
-print(vol1)
+def my_mean(sample):
+    return sum(sample) / len(sample)
+len1 = my_mean(rawLengths)
+vol1 = CalcVolume("Fibers", "Mesh", FIBER_DIAM)
+ang1 = my_mean(rawDirections)
+print("Volume [mm3]: ", vol1)
+print("Avg Length [mm] ", len1)
+print("Avg Angle [deg] ",ang1)
+#print(math.cos(math.pi/(ang1)))
+pcsa1 = (vol1*(math.cos(math.pi/(ang1))))/len1
+print("PCSA [mm2]: ", pcsa1)
