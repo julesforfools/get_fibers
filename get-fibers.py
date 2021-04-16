@@ -5,7 +5,7 @@ import math
 import os
 
 print(sys.argv[0:])
-
+print(len(sys.argv))
 #Blender 2.79 not supported!
 #Blender 2.80-2.91 not supported!
 #Blender 2.92 supported! (New Attribute shader node)
@@ -24,7 +24,11 @@ if SCALE_MULT == 'mm':
     SCALE_MULT = 1
 if SCALE_MULT == 'um':
     SCALE_MULT = 0.001
-FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) >= 7 else SCALE_MULT
+FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) == 8 else SCALE_MULT
+
+#--------------------------------------------------------------------------
+# Declare Functions Related to getting Muscle Architecture data from fibers
+#--------------------------------------------------------------------------
 
 ### Read Apodeme/Tendon Data from 4 landmarks ###
 def ReadApodemeData(filename, scale):
