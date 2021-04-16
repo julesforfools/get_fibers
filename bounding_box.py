@@ -122,10 +122,47 @@ def scenedim1():
 
     return scd
     
-scd = scenedim1()
+#scd = scenedim1()
 
 #bpy.ops.mesh.primitive_uv_sphere_add(radius=1, enter_editmode=False, align='WORLD', location=((maxx-minx),(maxy-miny),(maxz-minz)), scale=(scd1[0], scd1[1], scd1[2]))
-bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD', location=(scd[0], scd[1], scd[2]), scale=(scd[3], scd[4], scd[5]))
-print(scd[:])
+#bpy.ops.mesh.primitive_cube_add(size=2, enter_editmode=False, align='WORLD', location=(scd[0], scd[1], scd[2]), scale=(scd[3], scd[4], scd[5]))
+#print(scd[:])
 
+def CalcVolume(source_col, target_col, size):
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+    for obj in bpy.data.collections[source_col].all_objects:
+            if obj.type == "CURVE":
+                obj.select_set(True)
+    bpy.ops.object.duplicate()
+    for obj in bpy.context.selected_objects:
+        bpy.data.collections[source_col].objects.unlink(obj)
+        bpy.data.collections[target_col].objects.link(obj)
+    # Create a volume based on fibers
+    bpy.context.view_layer.objects.active = bpy.data.collections[target_col].all_objects[0]
+    bpy.ops.object.convert(target='MESH')
+    bpy.ops.object.join()
+    bpy.ops.object.modifier_add(type='REMESH')
+    bpy.context.object.modifiers["Remesh"].voxel_size = size
+    bpy.ops.object.modifier_apply(modifier="Remesh")
+    bpy.ops.object.duplicate()
+    bpy.ops.object.modifier_add(type='SUBSURF')
+    bpy.context.object.modifiers["Subdivision"].levels = 3
+    bpy.context.object.modifiers["Subdivision"].render_levels = 3
+    bpy.ops.object.modifier_add(type='SHRINKWRAP')
+    bpy.context.object.modifiers["Shrinkwrap"].wrap_method = 'PROJECT'
+    bpy.context.object.modifiers["Shrinkwrap"].wrap_mode = 'OUTSIDE'
+    bpy.context.object.modifiers["Shrinkwrap"].use_negative_direction = True
+    bpy.context.object.modifiers["Shrinkwrap"].target = bpy.data.collections[target_col].all_objects[0]
+    bpy.context.object.modifiers["Shrinkwrap"].offset = size
+    bpy.ops.object.modifier_apply(modifier="Subdivision")
+    bpy.ops.object.modifier_apply(modifier="Shrinkwrap")
+    # Calculate Object Volume by calculating mass with density of 1
+    bpy.ops.rigidbody.objects_add(type='ACTIVE')
+    bpy.ops.rigidbody.mass_calculate(material='Custom')
+    vol = bpy.context.object.rigid_body.mass
 
+    return vol
+
+vol1 = CalcVolume('Source', 'Mesh', 0.1)
+print(vol1)
