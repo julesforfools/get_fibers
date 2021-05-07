@@ -92,7 +92,7 @@ def CreateFiberFromTextData(pack, scale):
         #print(point)
         lsPoints.append(point)
     length = 0
-    if len(lsPoints) > 2:
+    if len(lsPoints) >= 2:
         p0 = lsPoints[0]
         p1 = lsPoints[-1]
         length = math.sqrt( (p1.x - p0.x)*(p1.x - p0.x) +  (p1.y - p0.y)*(p1.y - p0.y) + (p1.z - p0.z)*(p1.z - p0.z) )
@@ -388,7 +388,7 @@ for i in range(0, len(allFiberlines)):
         #individual fiber - directional
         CreateCurve(dataPoints = fiberPoints, thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
         fiberDirection = GetFiberDirection(fiberPoints)
-        #compute angle
+        #compute pennation angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property and save to .csv
         if angle >= 90:
             angle = abs(angle - 180)
