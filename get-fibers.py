@@ -446,6 +446,7 @@ ang1 = my_mean(rawDirections)
 print("Volume [mm3]: ", vol1)
 print("Avg Length [mm] ", len1)
 print("Avg Angle [deg] ",ang1)
+print("# fibers", len(rawLengths))
 #print(math.cos(math.pi/(ang1)))
-pcsa1 = (vol1*(math.cos(math.pi/(ang1))))/len1
-print("PCSA [mm2]: ", pcsa1)
+pcsa2 = (vol1*(math.cos(ang1*math.pi/180)))/len1
+print("PCSA2 [mm2]: ", pcsa2)
