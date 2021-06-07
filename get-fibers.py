@@ -177,7 +177,7 @@ def CalcVolume(source_col, target_col, size):
     bpy.context.object.modifiers["Shrinkwrap"].wrap_mode = 'OUTSIDE'
     bpy.context.object.modifiers["Shrinkwrap"].use_negative_direction = True
     bpy.context.object.modifiers["Shrinkwrap"].target = bpy.data.collections[target_col].all_objects[0]
-    bpy.context.object.modifiers["Shrinkwrap"].offset = size
+    bpy.context.object.modifiers["Shrinkwrap"].offset = size/2
     bpy.ops.object.modifier_apply(modifier="Subdivision")
     bpy.ops.object.modifier_apply(modifier="Shrinkwrap")
     # Calculate Object Volume by calculating mass with density of 1
