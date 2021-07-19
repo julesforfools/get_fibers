@@ -3,6 +3,7 @@ from mathutils import Vector
 import bpy
 import math
 import os
+import numpy as np
 
 print(sys.argv[0:])
 print(len(sys.argv))
@@ -24,7 +25,7 @@ if SCALE_MULT == 'mm':
     SCALE_MULT = 1
 if SCALE_MULT == 'um':
     SCALE_MULT = 0.001
-FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) == 8 else SCALE_MULT
+FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) == 8 else SCALE_MULT*3
 
 #--------------------------------------------------------------------------
 # Declare Functions Related to getting Muscle Architecture data from fibers
@@ -63,7 +64,6 @@ def GetApodemeDirection(p1,p2,p3,p4):
 def CreatePointAtLocation(location,size=FIBER_DIAM):
     bpy.ops.mesh.primitive_cube_add(size=size, calc_uvs=True,location=location)
 
-
 ### Read Muscle Fiber Data from swc-file ###
 def ReadFiberData(filename):                                    # start the function
     textlines=[]                                                # create an empty list object
@@ -84,7 +84,7 @@ def ReadFiberData(filename):                                    # start the func
         pack.append(data)                                       # we add the current line to pack
     return lines
 
-### Turn lines array into ...
+### Turn lines array into list of vectors
 def CreateFiberFromTextData(pack, scale):
     lsPoints = []
     for d in pack:
@@ -98,7 +98,7 @@ def CreateFiberFromTextData(pack, scale):
         length = math.sqrt( (p1.x - p0.x)*(p1.x - p0.x) +  (p1.y - p0.y)*(p1.y - p0.y) + (p1.z - p0.z)*(p1.z - p0.z) )
     return lsPoints, length
 
-#### Get the fiber direction ###
+#### Get the fiber direction, do quality check and redo fiber points ###
 def GetFiberDirection(fiberPoints):
     vecs=[] #Create Empty list of vectors
     for i in range(0, len(fiberPoints)-1):
@@ -109,10 +109,147 @@ def GetFiberDirection(fiberPoints):
     vdir = Vector((0,0,0))
     for v in vecs:
         vdir += v
-    vdir = vdir/len(vecs)
-    #CreateCurve([p0, p1] , 0.1, (0,255,0,255), False)
-    return vdir.normalized()
+    vdir = vdir/len(vecs) # get first mean vector
+    vdir_95 = vdir.normalized()-vdir.normalized()*0.05
+    # Estimate improved direction vector
+    vecs2 =[]
+    schmecs=[]
+    for v in vecs:
+        if (vdir.normalized()-v.normalized()) <= vdir_95:
+            vecs2.append(v)
+        else:
+            schmecs.append(v)
+    vdir2 = Vector((0,0,0))
+    for v in vecs2:
+        vdir2 += v
+    vdir2 = vdir2/len(vecs2)
+    # Get rid of bad points
+    bad_vecs_ind = []
+    for i in range(0, len(schmecs)):
+        bad_vecs_ind.append(vecs.index(schmecs[i]))
+    newPoints = fiberPoints
+    for i in range(0, len(bad_vecs_ind)):
+        #print(i)
+        if bad_vecs_ind[i] == 0:
+            del(newPoints[0])
+            bad_vecs_ind = [x-1 for x in bad_vecs_ind]
+        if bad_vecs_ind[i] == bad_vecs_ind[i-1]+1:
+            del(newPoints[bad_vecs_ind[i]])
+            bad_vecs_ind = [x-1 for x in bad_vecs_ind]
+        if bad_vecs_ind[i] == len(newPoints)-2:
+            del(newPoints[-1])
+    # Return direction Vector and good Points
+    return vdir2.normalized(), newPoints
 
+
+#### Get the essential fiber parameters, slope and intercept to group them afterwards ###
+def GetFiberEssentials(newfiberPoints, fiberDirection, length):
+    # Create Numpy Array from Vectors
+    newParray = np.array([])
+    for i in range(0, len(newfiberPoints)):
+        newParray = np.append(newParray, newfiberPoints[i][0]) # x components
+        newParray = np.append(newParray, newfiberPoints[i][1]) # y components
+        newParray = np.append(newParray, newfiberPoints[i][2]) # z components
+    newParray = np.reshape(newParray, (len(newfiberPoints), 3))
+    # Create numpy array for fiber midpoint and fiber direction
+    essentials = np.array([newfiberPoints[0][0],newfiberPoints[0][1],newfiberPoints[0][2],np.mean(newParray[:,0]), np.mean(newParray[:,1]), np.mean(newParray[:,2]), newfiberPoints[-1][0],newfiberPoints[-1][1],newfiberPoints[-1][2], fiberDirection[0], fiberDirection[1], fiberDirection[2], length])
+    return newParray, essentials
+
+#### Helper function to return the smallest ID of fibers that have not been checked yet
+def not_in_it(A, B):
+    for i in A:
+        if i not in B:
+            return i
+
+#### Reduce the number of streamlines, based on proximity of midpoints ###
+def fibers_sort_mid(df, ids, radius):
+    checked = np.array([])
+    goal = ids.copy()
+    #checked = goal not in fib_ids # Include Fibers that were already checked in previous runs
+    i = not_in_it(ids, checked)
+    while (not np.array_equal(checked,goal)):
+        print("checking:", i)
+        i = np.where(ids == i)
+        losers = np.array([])
+        shmosers = []
+        for j in range(0, len(df)):
+            #print(j)
+            d = np.sqrt(((df[i,3]-df[j,3])**2)+((df[i,4]-df[j,4])**2)+((df[i,5]-df[j,5])**2)) # Distance of two points in 3D space
+            #print(len(df))
+            if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
+                losers = np.append(losers, j)
+                shmosers.append(True)
+            else:
+                shmosers.append(False)
+        checked = np.append(checked, ids[i])
+        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
+        checked = np.unique(checked)
+        checked = np.sort(checked)
+        losers = losers.astype(int)
+        df = np.delete(df, losers, axis = 0)
+        ids = np.delete(ids, losers)
+        i = not_in_it(goal, checked) #id position of min not in checked
+    return(df, ids)
+
+#### Reduce the number of streamlines, based on proximity of startpoints ###
+def fibers_sort_start(df, ids, radius):
+    checked = np.array([])
+    goal = np.array(range(0, max(ids)))
+    checked = goal[ids[np.searchsorted(ids,goal)] !=  goal] #Include Fibers that were already checked in previous runs
+    i = not_in_it(ids, checked)
+    while (not np.array_equal(checked,goal)):
+        print("checking:", i)
+        i = np.where(ids == i)
+        losers = np.array([])
+        shmosers = []
+        for j in range(0, len(df)):
+            #print(j)
+            d = np.sqrt(((df[i,0]-df[j,0])**2)+((df[i,1]-df[j,1])**2)+((df[i,2]-df[j,2])**2)) # Distance of two points in 3D space
+            #print(len(df))
+            if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
+                losers = np.append(losers, j)
+                shmosers.append(True)
+            else:
+                shmosers.append(False)
+        checked = np.append(checked, ids[i])
+        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
+        checked = np.unique(checked)
+        checked = np.sort(checked)
+        losers = losers.astype(int)
+        df = np.delete(df, losers, axis = 0)
+        ids = np.delete(ids, losers)
+        i = not_in_it(goal, checked) #id position of min not in checked
+    return(df, ids)
+
+#### Reduce the number of streamlines, based on proximity of endpoints ###
+def fibers_sort_end(df, ids, radius):
+    checked = np.array([])
+    goal = np.array(range(0, max(ids)))
+    checked = goal[ids[np.searchsorted(ids,goal)] !=  goal] #Include Fibers that were already checked in previous runs
+    i = not_in_it(ids, checked)
+    while (not np.array_equal(checked,goal)):
+        print("checking:", i)
+        i = np.where(ids == i)
+        losers = np.array([])
+        shmosers = []
+        for j in range(0, len(df)):
+            #print(j)
+            d = np.sqrt(((df[i,6]-df[j,6])**2)+((df[i,7]-df[j,7])**2)+((df[i,8]-df[j,8])**2)) # Distance of two points in 3D space
+            #print(len(df))
+            if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
+                losers = np.append(losers, j)
+                shmosers.append(True)
+            else:
+                shmosers.append(False)
+        checked = np.append(checked, ids[i])
+        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
+        checked = np.unique(checked)
+        checked = np.sort(checked)
+        losers = losers.astype(int)
+        df = np.delete(df, losers, axis = 0)
+        ids = np.delete(ids, losers)
+        i = not_in_it(goal, checked) #id position of min not in checked
+    return(df, ids)
 
 ### Create Curves from fiber data ###
 def CreateCurve(dataPoints,thickness,color,use_cyclic,collection):
@@ -177,14 +314,13 @@ def CalcVolume(source_col, target_col, size):
     bpy.context.object.modifiers["Shrinkwrap"].wrap_mode = 'OUTSIDE'
     bpy.context.object.modifiers["Shrinkwrap"].use_negative_direction = True
     bpy.context.object.modifiers["Shrinkwrap"].target = bpy.data.collections[target_col].all_objects[0]
-    bpy.context.object.modifiers["Shrinkwrap"].offset = size/2
+    bpy.context.object.modifiers["Shrinkwrap"].offset = size
     bpy.ops.object.modifier_apply(modifier="Subdivision")
     bpy.ops.object.modifier_apply(modifier="Shrinkwrap")
     # Calculate Object Volume by calculating mass with density of 1
     bpy.ops.rigidbody.objects_add(type='ACTIVE')
     bpy.ops.rigidbody.mass_calculate(material='Custom')
     vol = bpy.context.object.rigid_body.mass
-
     return vol
 
 # Create Collections to display different versions of muscle fibers
@@ -371,15 +507,39 @@ CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = FIBER_DIAM
 filepath = bpy.data.filepath
 directory = os.path.dirname(filepath)
 fiberFilePath = os.path.join(directory,FILE_FIBERS)
-allFiberlines = ReadFiberData(fiberFilePath)
+allFiberLines = ReadFiberData(fiberFilePath)
 
 rawDirections = []
 rawLengths = []
+radius = FIBER_DIAM/2
 
 #bpy.ops.object.select_all(action='DESELECT')
+fiber_essentials = np.array([])
+for i in range(0, len(allFiberLines)):
+    #print(i)
+    fiber = allFiberLines[i]
+    points, length = CreateFiberFromTextData(fiber, 1) #create fibers as array
+    direction, newPoints = GetFiberDirection(points)
+    newParray, essentials = GetFiberEssentials(newPoints, direction, length)
+    fiber_essentials = np.append(fiber_essentials, essentials)
+fiber_essentials = np.reshape(fiber_essentials, (len(allFiberLines), 13))
 
-for i in range(0, len(allFiberlines)):
-    lines = allFiberlines[i]
+df = fiber_essentials
+ids = np.array(range(0, len(df)))
+ids_copy = ids.copy()
+radius = 9
+
+df, ids = fibers_sort_mid(df, ids, radius)
+df, ids = fibers_sort_start(df, ids, radius)
+df, ids = fibers_sort_end(df, ids, radius)
+print("No. of winners:", len(ids))
+
+fibers_array = np.array(allFiberLines)
+winners = fibers_array[ids]
+
+for i in range(0, len(winners)):
+    print(i)
+    lines = winners[i]
     #create fiber from data
     fiberPoints, length = CreateFiberFromTextData(lines, SCALE_MULT)
     rawLengths.append(length)
@@ -387,7 +547,8 @@ for i in range(0, len(allFiberlines)):
     if len(fiberPoints):
         #individual fiber - directional
         CreateCurve(dataPoints = fiberPoints, thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
-        fiberDirection = GetFiberDirection(fiberPoints)
+        print(i)
+        fiberDirection, newPoints = GetFiberDirection(fiberPoints)
         #compute pennation angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property and save to .csv
         if angle >= 90:
@@ -413,7 +574,6 @@ for i in range(0, len(allFiberlines)):
             CreateCurve(dataPoints = [Vector((0,0,0)),fiberDirection], thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
-
     #curveOBJ.select_set(state=True)
     #context.view_layer.objects.active = curveOBJ.select_set(state=True)
     #curveOBJ.select_set(state=False)
@@ -447,6 +607,6 @@ print("Volume [mm3]: ", vol1)
 print("Avg Length [mm] ", len1)
 print("Avg Angle [deg] ",ang1)
 print("# fibers", len(rawLengths))
-#print(math.cos(math.pi/(ang1)))
+print(math.cos(math.pi/(ang1)))
 pcsa2 = (vol1*(math.cos(ang1*math.pi/180)))/len1
 print("PCSA2 [mm2]: ", pcsa2)
