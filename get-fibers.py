@@ -161,94 +161,100 @@ def not_in_it(A, B):
         if i not in B:
             return i
 
-#### Reduce the number of streamlines, based on proximity of midpoints ###
-def fibers_sort_mid(df, ids, radius):
-    checked = np.array([])
-    goal = ids.copy()
-    #checked = goal not in fib_ids # Include Fibers that were already checked in previous runs
-    i = not_in_it(ids, checked)
-    while (not np.array_equal(checked,goal)):
+#### Reduce the number of streamlines, based on proximity ###
+def fibers_sort_mid_fast(df, ids, radius):
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
         print("checking:", i)
-        i = np.where(ids == i)
-        losers = np.array([])
-        shmosers = []
         for j in range(0, len(df)):
-            #print(j)
+            if df[j,12] == 0:
+                continue
             d = np.sqrt(((df[i,3]-df[j,3])**2)+((df[i,4]-df[j,4])**2)+((df[i,5]-df[j,5])**2)) # Distance of two points in 3D space
-            #print(len(df))
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
-                losers = np.append(losers, j)
-                shmosers.append(True)
-            else:
-                shmosers.append(False)
-        checked = np.append(checked, ids[i])
-        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
-        checked = np.unique(checked)
-        checked = np.sort(checked)
-        losers = losers.astype(int)
-        df = np.delete(df, losers, axis = 0)
-        ids = np.delete(ids, losers)
-        i = not_in_it(goal, checked) #id position of min not in checked
+                df[j] = np.zeros(13)
+    for i in ids:
+        if df[i,12] == -1:
+            continue
+        elif df[i,12] == 0:
+            ids[i] = -1
     return(df, ids)
 
-#### Reduce the number of streamlines, based on proximity of startpoints ###
-def fibers_sort_start(df, ids, radius):
-    checked = np.array([])
-    goal = np.array(range(0, max(ids)))
-    checked = goal[ids[np.searchsorted(ids,goal)] !=  goal] #Include Fibers that were already checked in previous runs
-    i = not_in_it(ids, checked)
-    while (not np.array_equal(checked,goal)):
+def fibers_sort_start_fast(df, ids, radius):
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
         print("checking:", i)
-        i = np.where(ids == i)
-        losers = np.array([])
-        shmosers = []
         for j in range(0, len(df)):
-            #print(j)
+            if df[j,12] == 0:
+                continue
             d = np.sqrt(((df[i,0]-df[j,0])**2)+((df[i,1]-df[j,1])**2)+((df[i,2]-df[j,2])**2)) # Distance of two points in 3D space
-            #print(len(df))
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
-                losers = np.append(losers, j)
-                shmosers.append(True)
-            else:
-                shmosers.append(False)
-        checked = np.append(checked, ids[i])
-        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
-        checked = np.unique(checked)
-        checked = np.sort(checked)
-        losers = losers.astype(int)
-        df = np.delete(df, losers, axis = 0)
-        ids = np.delete(ids, losers)
-        i = not_in_it(goal, checked) #id position of min not in checked
+                df[j] = np.zeros(13)
+    for i in ids:
+        if df[i,12] == -1:
+            continue
+        elif df[i,12] == 0:
+            ids[i] = -1
     return(df, ids)
 
-#### Reduce the number of streamlines, based on proximity of endpoints ###
-def fibers_sort_end(df, ids, radius):
-    checked = np.array([])
-    goal = np.array(range(0, max(ids)))
-    checked = goal[ids[np.searchsorted(ids,goal)] !=  goal] #Include Fibers that were already checked in previous runs
-    i = not_in_it(ids, checked)
-    while (not np.array_equal(checked,goal)):
+def fibers_sort_end_fast(df, ids, radius):
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
         print("checking:", i)
-        i = np.where(ids == i)
-        losers = np.array([])
-        shmosers = []
         for j in range(0, len(df)):
-            #print(j)
+            if df[j,12] == 0:
+                continue
             d = np.sqrt(((df[i,6]-df[j,6])**2)+((df[i,7]-df[j,7])**2)+((df[i,8]-df[j,8])**2)) # Distance of two points in 3D space
-            #print(len(df))
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
-                losers = np.append(losers, j)
-                shmosers.append(True)
-            else:
-                shmosers.append(False)
-        checked = np.append(checked, ids[i])
-        checked = np.append(checked, [k for (k, v) in zip(ids, shmosers) if v])
-        checked = np.unique(checked)
-        checked = np.sort(checked)
-        losers = losers.astype(int)
-        df = np.delete(df, losers, axis = 0)
-        ids = np.delete(ids, losers)
-        i = not_in_it(goal, checked) #id position of min not in checked
+                df[j] = np.zeros(13)
+    for i in ids:
+        if df[i,12] == -1:
+            continue
+        elif df[i,12] == 0:
+            ids[i] = -1
+    return(df, ids)
+
+def fibers_sort_t(df, ids, radius):
+    # Assign t and x-intercept
+    df = np.c_[df, np.zeros(len(df))] # add t column, index 13
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
+        df[i,13] = (-df[i,3])/df[i,9] # calculate and assign t
+    df = np.c_[df, np.zeros(len(df))] # add aX column == 0
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
+        df[i,14] = df[i,3]+(df[i,13]*df[i,9]) # calculate and assign aX
+    df = np.c_[df, np.zeros(len(df))] # add aY column
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
+        df[i,15] = df[i,4]+(df[i,13]*df[i,10]) # calculate and assign aY
+    df = np.c_[df, np.zeros(len(df))] # add aZ column
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
+        df[i,16] = df[i,5]+(df[i,13]*df[i,11]) # calculate and assign aZ
+    # Begin Cleanup
+    for i in range(0, len(df)):
+        if df[i,12] == 0:
+            continue
+        print("checking:", i)
+        for j in range(0, len(df)):
+            if df[j,12] == 0:
+                continue
+            d = np.sqrt(((df[i,15]-df[j,15])**2)+((df[i,16]-df[j,16])**2)) # Distance of two points in 2D space
+            angle = (df[i,9]*df[j,9]+df[i,10]*df[j,10]+df[i,11]*df[j,11])/((np.sqrt(df[i,9]**2+df[i,10]**2+df[i,11]**2))*(np.sqrt(df[j,9]**2+df[j,10]**2+df[j,11]**2)))
+            if d <= 15*radius and angle > 0.9 and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
+                df[j] = np.zeros(17)
+    for i in ids:
+        if df[i,12] == -1:
+            continue
+        elif df[i,12] == 0:
+            ids[i] = -1
     return(df, ids)
 
 ### Create Curves from fiber data ###
@@ -314,7 +320,7 @@ def CalcVolume(source_col, target_col, size):
     bpy.context.object.modifiers["Shrinkwrap"].wrap_mode = 'OUTSIDE'
     bpy.context.object.modifiers["Shrinkwrap"].use_negative_direction = True
     bpy.context.object.modifiers["Shrinkwrap"].target = bpy.data.collections[target_col].all_objects[0]
-    bpy.context.object.modifiers["Shrinkwrap"].offset = size
+    bpy.context.object.modifiers["Shrinkwrap"].offset = size/2
     bpy.ops.object.modifier_apply(modifier="Subdivision")
     bpy.ops.object.modifier_apply(modifier="Shrinkwrap")
     # Calculate Object Volume by calculating mass with density of 1
@@ -504,6 +510,7 @@ CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = FIBER_DIAM
 
 ####Read and draw the fibers, calculate the angles####
 #for each fiber:
+
 filepath = bpy.data.filepath
 directory = os.path.dirname(filepath)
 fiberFilePath = os.path.join(directory,FILE_FIBERS)
@@ -511,12 +518,14 @@ allFiberLines = ReadFiberData(fiberFilePath)
 
 rawDirections = []
 rawLengths = []
-radius = FIBER_DIAM/2
+print(type(FIBER_DIAM))
+radius = FIBER_DIAM/SCALE_MULT/2
+print("radius:", radius)
 
 #bpy.ops.object.select_all(action='DESELECT')
 fiber_essentials = np.array([])
 for i in range(0, len(allFiberLines)):
-    #print(i)
+    #print("processing fiber:", i)
     fiber = allFiberLines[i]
     points, length = CreateFiberFromTextData(fiber, 1) #create fibers as array
     direction, newPoints = GetFiberDirection(points)
@@ -527,18 +536,25 @@ fiber_essentials = np.reshape(fiber_essentials, (len(allFiberLines), 13))
 df = fiber_essentials
 ids = np.array(range(0, len(df)))
 ids_copy = ids.copy()
-radius = 9
 
-df, ids = fibers_sort_mid(df, ids, radius)
-df, ids = fibers_sort_start(df, ids, radius)
-df, ids = fibers_sort_end(df, ids, radius)
-print("No. of winners:", len(ids))
+df, ids = fibers_sort_mid_fast(df, ids, radius)
+df, ids = fibers_sort_start_fast(df, ids, radius)
+df, ids = fibers_sort_end_fast(df, ids, radius)
+#df, ids = fibers_sort_t(df, ids, radius)
+
+winner_ids = np.array([])
+for i in range(0, len(ids)):
+    if ids[i] != -1:
+        winner_ids = np.append(winner_ids, ids[i])
+winner_ids = winner_ids.astype(int)
+
+print("No. of winners:", len(winner_ids))
 
 fibers_array = np.array(allFiberLines)
-winners = fibers_array[ids]
+winners = fibers_array[winner_ids]
 
 for i in range(0, len(winners)):
-    print(i)
+    #print("working fiber no.:", i)
     lines = winners[i]
     #create fiber from data
     fiberPoints, length = CreateFiberFromTextData(lines, SCALE_MULT)
@@ -547,7 +563,6 @@ for i in range(0, len(winners)):
     if len(fiberPoints):
         #individual fiber - directional
         CreateCurve(dataPoints = fiberPoints, thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Fibers")
-        print(i)
         fiberDirection, newPoints = GetFiberDirection(fiberPoints)
         #compute pennation angle
         angle = math.degrees(fiberDirection.angle(normalApodeme, Vector((0,0,0)))) # store this in a custom property and save to .csv
@@ -610,3 +625,9 @@ print("# fibers", len(rawLengths))
 print(math.cos(math.pi/(ang1)))
 pcsa2 = (vol1*(math.cos(ang1*math.pi/180)))/len1
 print("PCSA2 [mm2]: ", pcsa2)
+
+#--------------------------------------------------------------------------
+# Write Winners to csv
+#--------------------------------------------------------------------------
+FILE_WINNERS =  os.path.join(directory,"winner-fibers.csv")
+np.savetxt(FILE_WINNERS, winners, delimiter=',', fmt='%s')
