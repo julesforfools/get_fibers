@@ -7,12 +7,8 @@ import numpy as np
 
 print(sys.argv[0:])
 print(len(sys.argv))
-#Blender 2.79 not supported!
-#Blender 2.80-2.91 not supported!
-#Blender 2.92 supported! (New Attribute shader node)
-#----------------------------------------------------------------------------------------------------------------
-# run line:
-# ../blender-2.80/blender start-fibers.blend -P read-fibers.py -- markers-input.txt lines-fibers.swc
+#Blender 2.79-2.91 not supported!
+#Blender 2.92 supported! (New Attribute shader node required)
 #----------------------------------------------------------------------------------------------------------------
 
 #sys.argv is a list in Python, which contains the command-line arguments passed to the script.
@@ -25,7 +21,7 @@ if SCALE_MULT == 'mm':
     SCALE_MULT = 1
 if SCALE_MULT == 'um':
     SCALE_MULT = 0.001
-FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) == 8 else SCALE_MULT*3
+FIBER_DIAM = float(sys.argv[7])*SCALE_MULT if len(sys.argv) == 8 else 0.01/SCALE_MULT
 
 #--------------------------------------------------------------------------
 # Declare Functions Related to getting Muscle Architecture data from fibers
@@ -173,6 +169,7 @@ def fibers_sort_mid_fast(df, ids, radius):
             d = np.sqrt(((df[i,3]-df[j,3])**2)+((df[i,4]-df[j,4])**2)+((df[i,5]-df[j,5])**2)) # Distance of two points in 3D space
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
                 df[j] = np.zeros(13)
+                #print("skipping:", j)
     for i in ids:
         if df[i,12] == -1:
             continue
@@ -184,13 +181,14 @@ def fibers_sort_start_fast(df, ids, radius):
     for i in range(0, len(df)):
         if df[i,12] == 0:
             continue
-        print("checking:", i)
+        #print("checking:", i)
         for j in range(0, len(df)):
             if df[j,12] == 0:
                 continue
             d = np.sqrt(((df[i,0]-df[j,0])**2)+((df[i,1]-df[j,1])**2)+((df[i,2]-df[j,2])**2)) # Distance of two points in 3D space
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
                 df[j] = np.zeros(13)
+                #print("skipping:", j)
     for i in ids:
         if df[i,12] == -1:
             continue
@@ -202,13 +200,14 @@ def fibers_sort_end_fast(df, ids, radius):
     for i in range(0, len(df)):
         if df[i,12] == 0:
             continue
-        print("checking:", i)
+        #print("checking:", i)
         for j in range(0, len(df)):
             if df[j,12] == 0:
                 continue
             d = np.sqrt(((df[i,6]-df[j,6])**2)+((df[i,7]-df[j,7])**2)+((df[i,8]-df[j,8])**2)) # Distance of two points in 3D space
             if d <= radius and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
                 df[j] = np.zeros(13)
+                #print("skipping:", j)
     for i in ids:
         if df[i,12] == -1:
             continue
@@ -242,14 +241,15 @@ def fibers_sort_t(df, ids, radius):
     for i in range(0, len(df)):
         if df[i,12] == 0:
             continue
-        print("checking:", i)
+        #print("checking:", i)
         for j in range(0, len(df)):
             if df[j,12] == 0:
                 continue
             d = np.sqrt(((df[i,15]-df[j,15])**2)+((df[i,16]-df[j,16])**2)) # Distance of two points in 2D space
             angle = (df[i,9]*df[j,9]+df[i,10]*df[j,10]+df[i,11]*df[j,11])/((np.sqrt(df[i,9]**2+df[i,10]**2+df[i,11]**2))*(np.sqrt(df[j,9]**2+df[j,10]**2+df[j,11]**2)))
-            if d <= 15*radius and angle > 0.9 and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
+            if d <= radius and angle > 0.9 and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
                 df[j] = np.zeros(17)
+                print("skipping:", j)
     for i in ids:
         if df[i,12] == -1:
             continue
@@ -514,7 +514,9 @@ CreateCurve(dataPoints = [Vector((0,0,0)),normalApodeme], thickness = FIBER_DIAM
 filepath = bpy.data.filepath
 directory = os.path.dirname(filepath)
 fiberFilePath = os.path.join(directory,FILE_FIBERS)
+print("Reading Fibers Now")
 allFiberLines = ReadFiberData(fiberFilePath)
+
 
 rawDirections = []
 rawLengths = []
@@ -522,6 +524,7 @@ print(type(FIBER_DIAM))
 radius = FIBER_DIAM/SCALE_MULT/2
 print("radius:", radius)
 
+print("Cleaning Fibers Now")
 #bpy.ops.object.select_all(action='DESELECT')
 fiber_essentials = np.array([])
 for i in range(0, len(allFiberLines)):
@@ -532,6 +535,7 @@ for i in range(0, len(allFiberLines)):
     newParray, essentials = GetFiberEssentials(newPoints, direction, length)
     fiber_essentials = np.append(fiber_essentials, essentials)
 fiber_essentials = np.reshape(fiber_essentials, (len(allFiberLines), 13))
+print("Finished Cleaning Fibers")
 
 df = fiber_essentials
 ids = np.array(range(0, len(df)))
@@ -540,7 +544,7 @@ ids_copy = ids.copy()
 df, ids = fibers_sort_mid_fast(df, ids, radius)
 df, ids = fibers_sort_start_fast(df, ids, radius)
 df, ids = fibers_sort_end_fast(df, ids, radius)
-#df, ids = fibers_sort_t(df, ids, radius)
+df, ids = fibers_sort_t(df, ids, radius)
 
 winner_ids = np.array([])
 for i in range(0, len(ids)):
