@@ -678,6 +678,7 @@ print("No. of winners:", len(winner_ids))
 
 fibers_array = np.array(allFiberLines)
 winners = fibers_array[winner_ids]
+depsgraph = bpy.context.evaluated_depsgraph_get() #for curved length
 
 for i in range(0, len(winners)):
     #print("working fiber no.:", i)
@@ -701,6 +702,12 @@ for i in range(0, len(winners)):
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to straightened for later visualization
             bpy.context.object.data["fiber_length"] = length # Add Custom Property to straightened for later visualization
             bpy.context.object.pass_index = int(angle) # placeholder until adding driver works
+
+            #Calculate curved length
+            curve = bpy.context.object
+            curveLength = sum(s.calc_length() for s in curve.evaluated_get(depsgraph).data.splines)
+            bpy.context.object.data["curved_length"] = curveLength
+
             #draw nomalized flipped fiber at origin for debug and and clear visualization:
             CreateCurve(dataPoints = [Vector((0,0,0)),-(fiberDirection)], thickness = FIBER_DIAM/2, color = (1,0,0,1), use_cyclic = False, collection = "Normalized")
             bpy.context.object.data["attachment_angle"] = angle # Add Custom Property to normalized for later visualization
