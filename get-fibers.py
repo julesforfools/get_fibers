@@ -219,9 +219,13 @@ def fibers_sort_t(df, ids, radius):
     # Assign t and x-intercept
     df = np.c_[df, np.zeros(len(df))] # add t column, index 13
     for i in range(0, len(df)):
+        print(df[i,9])
         if df[i,12] == 0:
             continue
-        df[i,13] = (-df[i,3])/df[i,9] # calculate and assign t
+        elif df[i,9] == 0.0:
+            df[i,13] = 1.0
+        else:
+            df[i,13] = (-df[i,3])/df[i,9] # calculate and assign t by -mean x/direction x
     df = np.c_[df, np.zeros(len(df))] # add aX column == 0
     for i in range(0, len(df)):
         if df[i,12] == 0:
