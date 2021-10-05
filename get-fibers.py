@@ -219,11 +219,10 @@ def fibers_sort_t(df, ids, radius):
     # Assign t and x-intercept
     df = np.c_[df, np.zeros(len(df))] # add t column, index 13
     for i in range(0, len(df)):
-        print(df[i,9])
-        if df[i,12] == 0:
-            continue
-        elif df[i,9] == 0.0:
-            df[i,13] = 1.0
+        if df[i,12] == 0:       # if fiber has no length
+            continue            # just continue
+        elif df[i,9] == 0.0:    # if fiber is parallel to yz plane
+            continue            # just continue
         else:
             df[i,13] = (-df[i,3])/df[i,9] # calculate and assign t by -mean x/direction x
     df = np.c_[df, np.zeros(len(df))] # add aX column == 0
@@ -253,7 +252,7 @@ def fibers_sort_t(df, ids, radius):
             angle = (df[i,9]*df[j,9]+df[i,10]*df[j,10]+df[i,11]*df[j,11])/((np.sqrt(df[i,9]**2+df[i,10]**2+df[i,11]**2))*(np.sqrt(df[j,9]**2+df[j,10]**2+df[j,11]**2)))
             if d <= radius and angle > 0.9 and df[i,12] > df[j,12]: #the condition: if fibers are close together and second fiber is shorter
                 df[j] = np.zeros(17)
-                print("skipping:", j)
+                #print("skipping:", j)
     for i in ids:
         if df[i,12] == -1:
             continue
@@ -638,14 +637,12 @@ fiberFilePath = os.path.join(directory,FILE_FIBERS)
 print("Reading Fibers Now")
 allFiberLines = ReadFiberData(fiberFilePath)
 
-
 rawDirections = []
 rawLengths = []
-print(type(FIBER_DIAM))
 radius = FIBER_DIAM/SCALE_MULT/2
-print("radius:", radius)
 
 print("Cleaning Fibers Now")
+print("No. of traced fibers: ", len(allFiberLines))
 #bpy.ops.object.select_all(action='DESELECT')
 fiber_essentials = np.array([])
 for i in range(0, len(allFiberLines)):
@@ -658,6 +655,7 @@ for i in range(0, len(allFiberLines)):
 fiber_essentials = np.reshape(fiber_essentials, (len(allFiberLines), 13))
 print("Finished Cleaning Fibers")
 
+print("Starting Quality Check")
 df = fiber_essentials
 ids = np.array(range(0, len(df)))
 ids_copy = ids.copy()
@@ -665,7 +663,6 @@ ids_copy = ids.copy()
 df, ids = fibers_sort_mid_fast(df, ids, radius)
 df, ids = fibers_sort_start_fast(df, ids, radius)
 df, ids = fibers_sort_end_fast(df, ids, radius)
-print(df[0])
 df, ids = fibers_sort_t(df, ids, radius)
 
 winner_ids = np.array([])
@@ -673,7 +670,7 @@ for i in range(0, len(ids)):
     if ids[i] != -1:
         winner_ids = np.append(winner_ids, ids[i])
 winner_ids = winner_ids.astype(int)
-
+print("Finished Quality Check")
 print("No. of winners:", len(winner_ids))
 
 fibers_array = np.array(allFiberLines)
