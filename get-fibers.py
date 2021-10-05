@@ -148,7 +148,7 @@ def GetFiberEssentials(newfiberPoints, fiberDirection, length):
         newParray = np.append(newParray, newfiberPoints[i][2]) # z components
     newParray = np.reshape(newParray, (len(newfiberPoints), 3))
     # Create numpy array for fiber midpoint and fiber direction
-    essentials = np.array([newfiberPoints[0][0],newfiberPoints[0][1],newfiberPoints[0][2],np.mean(newParray[:,0]), np.mean(newParray[:,1]), np.mean(newParray[:,2]), newfiberPoints[-1][0],newfiberPoints[-1][1],newfiberPoints[-1][2], fiberDirection[0], fiberDirection[1], fiberDirection[2], length])
+    essentials = np.array([newfiberPoints[0][0],newfiberPoints[0][1],newfiberPoints[0][2],np.mean(newParray[:,0]), np.mean(newParray[:,1]), np.mean(newParray[:,2]), newfiberPoints[-1][0],newfiberPoints[-1][1],newfiberPoints[-1][2], fiberDirection[0], fiberDirection[1], fiberDirection[2], length]) # 0;1;2 = start x;y;z, 3;4;5 = mean x;y;z, 6;7;8 = end x;y;z, 9;10;11 = direction x;y;z, 12 = length
     return newParray, essentials
 
 #### Helper function to return the smallest ID of fibers that have not been checked yet
@@ -162,7 +162,7 @@ def fibers_sort_mid_fast(df, ids, radius):
     for i in range(0, len(df)):
         if df[i,12] == 0:
             continue
-        print("checking:", i)
+        #print("checking:", i)
         for j in range(0, len(df)):
             if df[j,12] == 0:
                 continue
@@ -544,6 +544,7 @@ ids_copy = ids.copy()
 df, ids = fibers_sort_mid_fast(df, ids, radius)
 df, ids = fibers_sort_start_fast(df, ids, radius)
 df, ids = fibers_sort_end_fast(df, ids, radius)
+print(df[0])
 df, ids = fibers_sort_t(df, ids, radius)
 
 winner_ids = np.array([])
@@ -623,12 +624,16 @@ len1 = my_mean(rawLengths)
 vol1 = CalcVolume("Fibers", "Mesh", FIBER_DIAM)
 ang1 = my_mean(rawDirections)
 print("Volume [mm3]: ", vol1)
-print("Avg Length [mm] ", len1)
-print("Avg Angle [deg] ",ang1)
-print("# fibers", len(rawLengths))
-print(math.cos(math.pi/(ang1)))
-pcsa2 = (vol1*(math.cos(ang1*math.pi/180)))/len1
+print("Avg Length [mm]: ", len1)
+print("Avg Angle [deg]: ",ang1)
+print("n fibers: ", len(rawLengths))
+#print(math.cos(math.pi/(ang1))) #Angle in radians
+pcsa2 = (vol1*(math.cos(ang1*math.pi/180)))/len1 #Formula after Sacks & Roy (1985) with angle in radians
 print("PCSA2 [mm2]: ", pcsa2)
+
+arrSummary = np.array([["Volume [mm3]", vol1],["Avg Length [mm]", len1],["Avg Angle [deg]",ang1],["PCSA2 [mm2]", pcsa2]])
+FILE_SUMMARY =  os.path.join(directory,"out-summary.csv")
+np.savetxt(FILE_SUMMARY, arrSummary, delimiter=',', fmt='%s')
 
 #--------------------------------------------------------------------------
 # Write Winners to csv
