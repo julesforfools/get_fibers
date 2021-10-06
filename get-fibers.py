@@ -221,10 +221,8 @@ def fibers_sort_t(df, ids, radius):
     for i in range(0, len(df)):
         if df[i,12] == 0:       # if fiber has no length
             continue            # just continue
-        elif df[i,9] == 0.0:    # if fiber is parallel to yz plane
-            continue            # just continue
         else:
-            df[i,13] = (-df[i,3])/df[i,9] # calculate and assign t by -mean x/direction x
+            df[i,13] = (-df[i,3])/(df[i,9]+10**-10) # calculate and assign t by -mean x/direction x
     df = np.c_[df, np.zeros(len(df))] # add aX column == 0
     for i in range(0, len(df)):
         if df[i,12] == 0:
